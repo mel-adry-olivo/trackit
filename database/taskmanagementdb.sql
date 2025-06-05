@@ -140,6 +140,7 @@ INSERT INTO users
   'Genevieve Mirren-Carter', 'Partner', '555-0001', NULL
 );
 
+-- Admin
 INSERT INTO users
 (
   user_code,
