@@ -1,8 +1,12 @@
 <?php
 
-include "database/queries.php";
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ob_start();
 
 session_start();
+
+include __DIR__ . '/database/queries.php';
 
 $userFullname = $_SESSION['full_name'] ?? '';
 $userCode = $_SESSION["user_code"] ?? null;
@@ -10,7 +14,7 @@ $userCode = $_SESSION["user_code"] ?? null;
 $tasks = getManagerAllTasks($userCode);
 $today = date('Y-m-d');
 
-$taskTemplates = getAllTaskTemplates();
+$taskTemplates = getAllTaskTemplates() ?? [];
 $employees = getAllEmployees();
 
 $statusMap = [
@@ -131,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
   <link rel="stylesheet" href="assets/css/styles.css" />
   <script src="./assets/js/main/clock.js" defer></script>
   <script src="./assets/js/main/search.js" defer></script>
-  <script>
+  <script defer>
     function startOverlayAnimation() {
       const overlay = document.querySelector('.mgr-home-overlay');
       const button = document.querySelector('.mgr-home-btn');
@@ -145,7 +149,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
         overlay.classList.add('slide-up');
         button.textContent = "Hey there!";
         document.body.style.overflow = 'auto';
-        document.getElementById('main-dashboard').scrollIntoView({ behavior: 'smooth' });
       }
     }
   </script>
@@ -176,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
 
   <div class="mgr-container">
     <!-- Sidebar -->
-    <?php include "./php/includes/mgr_sidebar.php"; ?>
+    <?php include __DIR__ . '/php/includes/mgr_sidebar.php'; ?>
 
 
     <!-- Main Content -->
@@ -354,19 +357,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
 
   const originalValues = {};
 
-  // --- NEW `addNewTaskRow` function ---
   function addNewTaskRow() {
-    // Don't add a new row if one already exists
     if (document.getElementById('new-task-form-row')) return;
 
     const tableBody = document.getElementById('taskBody');
     const addTaskRow = document.getElementById('add-task-row');
 
-    // Create a new row element
     const newRow = document.createElement('tr');
     newRow.id = 'new-task-form-row';
 
-    // Construct the HTML for the input fields inside the new row
     newRow.innerHTML = `
         <td>
             <select name="assignee_code" class="new-task-assignee">
@@ -395,14 +394,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
         </td>
     `;
 
-    // Insert the new row before the "+ Add Task" button's row
     tableBody.insertBefore(newRow, addTaskRow);
 
-    // Hide the "+ Add Task" button to prevent adding multiple new rows
     document.querySelector('.add-task-btn').style.display = 'none';
   }
 
-  // --- NEW `cancelNewTask` function ---
   function cancelNewTask() {
     const newRow = document.getElementById('new-task-form-row');
     if (newRow) {
@@ -560,7 +556,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
           if (level === value) option.selected = true;
           input.appendChild(option);
         });
-      } else { // For regular text/date inputs
+      } else {
         input = document.createElement('input');
         input.type = inputType;
         input.name = inputName;
@@ -590,7 +586,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
     document.getElementById(`saveBtn-${taskId}`).style.display = 'none';
     document.getElementById(`cancelBtn-${taskId}`).style.display = 'none';
 
-    // re-show normal buttons
     document.getElementById(`editBtn-${taskId}`).style.display = 'inline-block';
     document.getElementById(`deleteBtn-${taskId}`).style.display = 'inline-block';
   }
@@ -604,7 +599,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
     const prioSelect = row.querySelector('td[data-field="priority_display"] select');
     const taskSelect = row.querySelector('td[data-field="task_display"] select');
 
-    // Gather form-data
     const payload = new URLSearchParams();
     payload.append('action', 'edit_task');
     payload.append('task_id', taskId);
@@ -634,11 +628,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
       row.querySelector('td[data-field="end_date_display"]').textContent = result.data.end_date;
       row.querySelector('td[data-field="priority_display"]').textContent = result.data.priority;
 
-      // hide the inline editors
       document.getElementById(`saveBtn-${taskId}`).style.display = 'none';
       document.getElementById(`cancelBtn-${taskId}`).style.display = 'none';
 
-      // re-show the normal actions
       document.getElementById(`editBtn-${taskId}`).style.display = 'inline-block';
       document.getElementById(`deleteBtn-${taskId}`).style.display = 'inline-block';
 
@@ -650,7 +642,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
     }
   }
 
-  // helper to show a message at top for a few seconds
   function showTemporaryMessage(msg, type = 'success') {
     const div = document.createElement('div');
     div.textContent = msg;
@@ -704,10 +695,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
     }
   });
 
-
-
-
-
   function searchTasks() {
     const input = document.getElementById("searchBar").value.toLowerCase();
     const rows = document.querySelectorAll("#taskBody tr:not(#add-task-row)");
@@ -727,11 +714,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
     if (modal) modal.style.display = 'none';
   }
 
-
-
-
-
 </script>
+
 </body>
 
 </html>
