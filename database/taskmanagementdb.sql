@@ -26,7 +26,7 @@ CREATE TABLE `users` (
   `end_date`       DATE               DEFAULT NULL,
   `role`           ENUM('employee','manager','admin') NOT NULL DEFAULT 'employee',
   `created_at`     DATE               DEFAULT CURRENT_DATE,
-  `job_title`      ENUM('Admin','Barista','POS Management','Delivery') DEFAULT 'Barista',
+  `job_title`      VARCHAR(100)       DEFAULT NULL, -- CHANGED FROM ENUM TO VARCHAR
 
   `emergency_contact_name` VARCHAR(150) DEFAULT NULL,
   `emergency_relationship` VARCHAR(100) DEFAULT NULL,
@@ -35,74 +35,72 @@ CREATE TABLE `users` (
   `profile_image`  VARCHAR(255)       DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-
-CREATE TABLE `task_templates` (
-  `id`          INT AUTO_INCREMENT PRIMARY KEY,
-  `description` VARCHAR(255) NOT NULL
+CREATE TABLE task_templates (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  description VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE tasks (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  assigned_by VARCHAR(10) NOT NULL,
+  assigned_to VARCHAR(10) NOT NULL,
+  template_id INT         NOT NULL,
+  timeline    VARCHAR(255) NOT NULL,
+  status      ENUM('Not Started','In Progress','Done','Overdue') NOT NULL DEFAULT 'Not Started',
+  start_date  DATE        NOT NULL,
+  end_date    DATE        NOT NULL,
+  priority    ENUM('High','Medium','Low') NOT NULL DEFAULT 'Medium',
+  created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
 
-CREATE TABLE `tasks` (
-  `id`          INT AUTO_INCREMENT PRIMARY KEY,
-  `assigned_by` VARCHAR(10) NOT NULL,
-  `assigned_to` VARCHAR(10) NOT NULL,
-  `template_id` INT         NOT NULL,
-  `timeline`    VARCHAR(255) NOT NULL,
-  `status`      ENUM('Not Started','In Progress','Done','Overdue') NOT NULL DEFAULT 'Not Started',
-  `start_date`  DATE        NOT NULL,
-  `end_date`    DATE        NOT NULL,
-  `priority`    ENUM('High','Medium','Low') NOT NULL DEFAULT 'Medium',
-  `created_at`  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (`assigned_by`) REFERENCES `users`(`user_code`) ON DELETE CASCADE,
-  FOREIGN KEY (`assigned_to`) REFERENCES `users`(`user_code`) ON DELETE CASCADE,
-  FOREIGN KEY (`template_id`) REFERENCES `task_templates`(`id`) ON DELETE CASCADE
+  FOREIGN KEY (assigned_by) REFERENCES users(user_code) ON DELETE CASCADE,
+  FOREIGN KEY (assigned_to) REFERENCES users(user_code) ON DELETE CASCADE,
+  FOREIGN KEY (template_id) REFERENCES task_templates(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE `notes` (
-  `id`          INT AUTO_INCREMENT PRIMARY KEY,
-  `user_code`   VARCHAR(10),
-  `title`       VARCHAR(255) NOT NULL,
-  `content`     TEXT         NOT NULL,
-  `alarm_time`  DATETIME,
-  `created_at`  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`user_code`) REFERENCES `users`(`user_code`) ON DELETE CASCADE
+CREATE TABLE notes (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  user_code   VARCHAR(10),
+  title       VARCHAR(255) NOT NULL,
+  content     TEXT         NOT NULL,
+  alarm_time  DATETIME,
+  created_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_code) REFERENCES users(user_code) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE `behavioral_evaluations` (
-  `id`             INT AUTO_INCREMENT PRIMARY KEY,
-  `employee_code`  VARCHAR(10) NOT NULL,
-  `evaluated_by`   VARCHAR(10) NOT NULL,
-  `week_start_date` DATE       NOT NULL,
-  `week_end_date`   DATE       NOT NULL,
-  `scores`         JSON       NOT NULL,
-  `total_score`    INT        NOT NULL,
-  `created_at`     TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
+CREATE TABLE behavioral_evaluations (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  employee_code  VARCHAR(10) NOT NULL,
+  evaluated_by   VARCHAR(10) NOT NULL,
+  week_start_date DATE       NOT NULL,
+  week_end_date   DATE       NOT NULL,
+  scores         JSON       NOT NULL,
+  total_score    INT        NOT NULL,
+  created_at     TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
 
-  FOREIGN KEY (`employee_code`) REFERENCES `users`(`user_code`) ON DELETE CASCADE,
-  FOREIGN KEY (`evaluated_by`) REFERENCES `users`(`user_code`) ON DELETE CASCADE
+  FOREIGN KEY (employee_code) REFERENCES users(user_code) ON DELETE CASCADE,
+  FOREIGN KEY (evaluated_by) REFERENCES users(user_code) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ===========================================================
 
-INSERT INTO `users`
+INSERT INTO users
 (
-  `user_code`,
-  `username`, `firstname`, `lastname`, `email`, `password`, `role`,
-  `date_of_birth`, `place_of_birth`, `gender`, `civil_status`, `nationality`, `phone`, `address`,
-  `start_date`, `end_date`, `created_at`, `job_title`,
-  `emergency_contact_name`, `emergency_relationship`, `emergency_phone`, `profile_image`
+  user_code,
+  username, firstname, lastname, email, password, role,
+  date_of_birth, place_of_birth, gender, civil_status, nationality, phone, address,
+  start_date, end_date, created_at, job_title,
+  emergency_contact_name, emergency_relationship, emergency_phone, profile_image
 ) VALUES
 (
   'PKM001', 'shi', 'Shenna Jane', 'Guancia', 'shennajane@gmail.com', '$2y$10$VNxo8oMjzY9EO.kQWwF/xO2aC0/xlKrVjkyM07WwZl1H2JGgdzmGi', 'manager',
   '1988-05-14', 'New York', 'Female', 'Married', 'American', '555-1234', '123 Main St, New York, NY',
-  '2020-01-01', NULL, '2020-01-01', 'POS Management',
+  '2020-01-01', NULL, '2020-01-01', 'POS Manager',
   'Robert Guancia', 'Husband', '555-5678', NULL
 ),
 (
   'PKM002', 'mk00000017', 'Meryll Klaryze', 'Polaron', 'meryllklaryze.polaron@gmail.com', '$2y$10$gLTNSgR89kRpAvrNDeYkouietoDrxpvJalrQWuW/eRLcJrn8QTAcK', 'manager',
   '1990-09-30', 'Los Angeles', 'Female', 'Single', 'Filipino', '555-4321', '456 Elm St, Los Angeles, CA',
-  '2021-06-15', NULL, '2021-06-15', 'POS Management',
+  '2021-06-15', NULL, '2021-06-15', 'POS Manager',
   'Jose Polaron', 'Father', '555-8765', NULL
 ),
 (
@@ -142,9 +140,25 @@ INSERT INTO `users`
   'Genevieve Mirren-Carter', 'Partner', '555-0001', NULL
 );
 
+INSERT INTO users
+(
+  user_code,
+  username, firstname, lastname, email, password, role,
+  date_of_birth, place_of_birth, gender, civil_status, nationality, phone, address,
+  start_date, end_date, created_at, job_title,
+  emergency_contact_name, emergency_relationship, emergency_phone, profile_image
+) VALUES
+(
+  'PKA001', 'admin01', 'Admin', 'User', 'admin@example.com',
+  '$2y$10$sw6abkvDt1E.Om6fad7iR.eE/ob1QzLW/dSExYqAvKG.9iK9l3mg6',
+  'admin',
+  '1990-01-01', 'Headquarters', 'Other', 'Single', 'American', '555-0000', '100 Admin Blvd, HQ',
+  '2020-01-01', NULL, '2020-01-01', 'Admin',
+  'N/A', 'N/A', '000-0000', NULL
+);
 
 -- Task Templates
-INSERT INTO `task_templates` (`description`) VALUES
+INSERT INTO task_templates (description) VALUES
 ('Full Inventory Audit (Count all stock, check expiry dates)'),
 ('Reorganize Storage Room (Label shelves, FIFO system)'),
 ('Compare Supplier Prices & Negotiate Discounts'),
@@ -163,26 +177,26 @@ INSERT INTO `task_templates` (`description`) VALUES
 ('Plan a Staff Appreciation Day (Budget, activities)');
 
 -- Tasks using user_code for assigned_by and assigned_to
-INSERT INTO `tasks` (`assigned_by`, `assigned_to`, `template_id`, `timeline`, `status`, `start_date`, `end_date`, `priority`) VALUES
+INSERT INTO tasks (assigned_by, assigned_to, template_id, timeline, status, start_date, end_date, priority) VALUES
 ('PKM001', 'PKE001', 5, '2 days', 'In Progress', '2025-03-18', '2025-03-20', 'High'),
 ('PKM002', 'PKE001', 14, '3 days', 'Not Started', '2025-04-10', '2025-04-12', 'Medium');
 
 -- Completed Tasks
-INSERT INTO `tasks` (`assigned_by`, `assigned_to`, `template_id`, `timeline`, `status`, `start_date`, `end_date`, `priority`) VALUES
+INSERT INTO tasks (assigned_by, assigned_to, template_id, timeline, status, start_date, end_date, priority) VALUES
 ('PKM001', 'PKE001', 1, '3 days', 'Done', '2025-02-01', '2025-02-03', 'High'),
 ('PKM002', 'PKE001', 2, '1 day', 'Done', '2025-01-15', '2025-01-15', 'Low');
 
 -- Overdue Tasks
-INSERT INTO `tasks` (`assigned_by`, `assigned_to`, `template_id`, `timeline`, `status`, `start_date`, `end_date`, `priority`) VALUES
+INSERT INTO tasks (assigned_by, assigned_to, template_id, timeline, status, start_date, end_date, priority) VALUES
 ('PKM001', 'PKE001', 3, '2 days', 'Overdue', '2025-05-01', '2025-05-03', 'Medium'),
 ('PKM002', 'PKE001', 4, '1 week', 'Overdue', '2025-04-20', '2025-04-27', 'High');
 
 -- Active In Progress Tasks
-INSERT INTO `tasks` (`assigned_by`, `assigned_to`, `template_id`, `timeline`, `status`, `start_date`, `end_date`, `priority`) VALUES
+INSERT INTO tasks (assigned_by, assigned_to, template_id, timeline, status, start_date, end_date, priority) VALUES
 ('PKM001', 'PKE001', 6, '4 days', 'In Progress', '2025-06-01', '2025-06-04', 'Medium'),
 ('PKM002', 'PKE001', 7, '2 days', 'In Progress', '2025-06-03', '2025-06-05', 'Low');
 
 -- Upcoming Tasks
-INSERT INTO `tasks` (`assigned_by`, `assigned_to`, `template_id`, `timeline`, `status`, `start_date`, `end_date`, `priority`) VALUES
+INSERT INTO tasks (assigned_by, assigned_to, template_id, timeline, status, start_date, end_date, priority) VALUES
 ('PKM001', 'PKE001', 8, '2 days', 'Not Started', '2025-06-10', '2025-06-11', 'High'),
 ('PKM002', 'PKE001', 9, '1 day', 'Not Started', '2025-06-15', '2025-06-15', 'Low');

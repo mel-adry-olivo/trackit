@@ -9,6 +9,7 @@ $userFullname = $_SESSION['full_name'] ?? '';
 $userCode = $_SESSION["user_code"] ?? null;
 
 $allTasks = getManagerAllTasks($userCode);
+$mgrTasks = getTasksOfManager($userCode);
 
 $taskTemplates = getAllTaskTemplates();
 $employees = getAllEmployees();
@@ -113,7 +114,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
 
 <body class="manager">
 
-
   <div class="top-banner" style="
   background: url('./assets/img/banners/25.jpg') no-repeat center center / cover;
     width: 100%;
@@ -127,11 +127,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
 
   </div>
   <div class="mgr-container">
-    <!-- Sidebar -->
     <?php include "./php/includes/mgr_sidebar.php"; ?>
 
-
-    <!-- Main Content -->
     <main class="mgr-content">
       <header class="mgr-header">
         <div>
@@ -153,6 +150,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
           <h1><br>All Employee Tasks</h1><br>
           <p>Refer here to view real-time tasks.</p><br><br><br>
         </div>
+        <div class="mgr-title">
+          <h1>Manager Task Overview</h1><br>
+        </div>
+        <section class="mgr-task-table">
+          <table>
+            <thead>
+              <tr>
+                <th>ASSIGNEE</th>
+                <th>ID NO.</th>
+                <th>TASK</th>
+                <th>START DATE</th>
+                <th>END DATE</th>
+                <th>TIMELINE</th>
+                <th>STATUS</th>
+                <th>PRIORITY</th>
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody id="taskBody">
+              <?php foreach ($mgrTasks as $task): ?>
+                <form method="POST">
+                  <input type="hidden" name="action" value="edit_task">
+                  <input type="hidden" name="task_id" value="<?= $task['id'] ?>">
+                  <input type="hidden" name="template_id" id="template_id_hidden_<?= $task['id'] ?>"
+                    value="<?= $task['template_id'] ?>">
+                  <input type="hidden" name="task_description" id="task_description_hidden_<?= $task['id'] ?>"
+                    value="<?= htmlspecialchars($task['task']) ?>">
+
+                  <input type="hidden" name="start_date" id="start_date_hidden_<?= $task['id'] ?>"
+                    value="<?= $task['start_date'] ?>">
+                  <input type="hidden" name="end_date" id="end_date_hidden_<?= $task['id'] ?>"
+                    value="<?= $task['end_date'] ?>">
+                  <input type="hidden" name="priority" id="priority_hidden_<?= $task['id'] ?>"
+                    value="<?= $task['priority'] ?>">
+
+                  <tr id="task-row-<?= $task['id'] ?>">
+                    <td><?= $task['assignee_name'] ?></td>
+                    <td><?= $task['assignee_code'] ?></td>
+                    <td class="editable" data-field="task_display" data-template-id="<?= $task['template_id'] ?>">
+                      <?= htmlspecialchars($task['task']) ?>
+                    </td>
+                    <td class="editable" data-field="start_date_display"><?= $task['start_date'] ?></td>
+                    <td class="editable" data-field="end_date_display"><?= $task['end_date'] ?></td>
+                    <td><?= $task['timeline'] ?></td>
+                    <td><?= $task['status'] ?></td>
+                    <td class="editable" data-field="priority_display"><?= $task['priority'] ?></td>
+                    <td>
+                      <button type="button" onclick="enableRowEdit(<?= $task['id'] ?>)"
+                        id="editBtn-<?= $task['id'] ?>">Edit</button>
+                      <button type="submit" style="display:none;" id="saveBtn-<?= $task['id'] ?>"
+                        onclick="updateHiddenFieldsAndConfirm(event, <?= $task['id'] ?>)">Save</button>
+                      <button type="button" id="cancelBtn-<?= $task['id'] ?>" style="display:none;"
+                        onclick="cancelEdit(<?= $task['id'] ?>)">
+                        Cancel
+                      </button>
+                      <button type="button" onclick="showDeleteModal(<?= $task['id'] ?>)"
+                        id="deleteBtn-<?= $task['id'] ?>">Delete</button>
+                    </td>
+                  </tr>
+                </form>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+
+        </section>
 
         <div class="mgr-title">
           <h1>Employee Task Overview</h1><br>

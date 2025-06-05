@@ -57,7 +57,7 @@ $data = [
   'address' => $_POST['address'] ?? null,
   'start_date' => $_POST['start_date'],
   'end_date' => $_POST['date_created'] ?? null,
-  'role' => "employee",
+  'role' => "manager",
   'job_title' => $_POST['job_title'] ?? null,
   'emergency_contact_name' => $_POST['emergency_name'] ?? null,
   'emergency_relationship' => $_POST['emergency_relation'] ?? null,
@@ -67,10 +67,10 @@ $data = [
 
 $ok = insertUser($data);
 if ($ok !== true) {
-  // return the actual SQL error
   echo json_encode([
     'success' => false,
-    'message' => $ok
+    'message' => $ok,
+    'data' => $data
   ]);
   exit;
 }
@@ -78,7 +78,7 @@ if ($ok !== true) {
 $subject = "Welcome to Paul Kaldi!";
 $message = "Dear {$data['firstname']} {$data['lastname']},\n\n"
   . "Congratulations and welcome to the team at Paul Kaldi! We’re thrilled to have you join us and look forward to the contributions you'll bring to our growing team.\n\n"
-  . "Below are your account credentials to access the Paul Kaldi Employee Dashboard:\n\n"
+  . "Below are your account credentials to access the Paul Kaldi Manager Dashboard:\n\n"
   . "Full Name: {$data['firstname']} {$data['lastname']}\n"
   . "ID Number: {$data['user_code']}\n"
   . "Temporary Password: changeme\n\n"
@@ -88,7 +88,6 @@ $message = "Dear {$data['firstname']} {$data['lastname']},\n\n"
   . "Welcome aboard once again!\n\n"
   . "Best regards,\n"
   . "Paul Kaldi Team";
-
 
 $emailSent = false;
 $mail = new PHPMailer(true);
@@ -126,6 +125,5 @@ echo json_encode([
   'employee_id' => $data['user_code'],
   'email_sent' => $emailSent
 ]);
-
 
 exit;

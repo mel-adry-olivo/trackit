@@ -128,9 +128,45 @@ function getManagerAllTasks($managerCode, $limit = null)
       $tasks[] = $row;
     }
   }
-
   return $tasks;
 }
+
+function getTasksOfManager($managerCode, $limit = null)
+{
+  $conn = connect_to_database();
+  $tasks = [];
+
+  $sql = "
+    SELECT
+      t.id AS id,
+      assignee.user_code AS assignee_code,
+      CONCAT(assignee.firstname, ' ', assignee.lastname) AS assignee_name,
+      t.template_id,
+      tt.description AS task,
+      t.start_date,
+      t.end_date,
+      t.timeline,
+      t.status,
+      t.priority
+    FROM tasks t
+    JOIN task_templates tt ON t.template_id = tt.id
+    JOIN users assignee ON assignee.user_code = t.assigned_to
+    WHERE t.assigned_to = '$managerCode'
+  ";
+
+  if ($limit !== null && is_int($limit) && $limit > 0) {
+    $sql .= " LIMIT $limit";
+  }
+
+  $result = $conn->query($sql);
+  if ($result) {
+    while ($row = $result->fetch_assoc()) {
+      $tasks[] = $row;
+    }
+  }
+  return $tasks;
+}
+
 function getEmployeeTasks($employeeCode, $limit = null)
 {
   $conn = connect_to_database();
@@ -304,10 +340,25 @@ function deleteTask($taskId)
   }
 }
 
+
+
+
 function getAllEmployees()
 {
   $conn = connect_to_database();
   $sql = "SELECT user_code, full_name FROM users WHERE role = 'employee'";
+  $result = $conn->query($sql);
+  $employees = [];
+  while ($row = $result->fetch_assoc()) {
+    $employees[] = $row;
+  }
+  return $employees;
+}
+
+function getAllManagers()
+{
+  $conn = connect_to_database();
+  $sql = "SELECT user_code, full_name FROM users WHERE role = 'manager'";
   $result = $conn->query($sql);
   $employees = [];
   while ($row = $result->fetch_assoc()) {
