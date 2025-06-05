@@ -359,3 +359,94 @@ function getAllUsers()
   }
   return $users;
 }
+function getEvaluation(int $employeeId, string $weekStartDate, int $managerId)
+{
+  $conn = connect_to_database();
+
+  $employeeIdEsc = (int) $employeeId;
+  $managerIdEsc = (int) $managerId;
+  $weekStartEsc = mysqli_real_escape_string($conn, $weekStartDate);
+
+  $sql = "SELECT * FROM behavioral_evaluations
+            WHERE employee_id = $employeeIdEsc
+              AND evaluated_by = $managerIdEsc
+              AND week_start_date = '$weekStartEsc'
+            LIMIT 1";
+
+  $result = mysqli_query($conn, $sql);
+  if ($result && mysqli_num_rows($result) > 0) {
+    return mysqli_fetch_assoc($result);
+  }
+  return false;
+}
+function saveOrUpdateScore($employeeId, $managerId, $totalScore, $feedback, $weekStartDate, $detailsJson)
+{
+  $conn = connect_to_database();
+
+  // Escape inputs & sanitize
+  $employeeId = intval($employeeId);
+  $managerId = intval($managerId);
+  $totalScore = intval($totalScore);
+  $weekStartDateEsc = $conn->real_escape_string($weekStartDate);
+  // week_end_date can be computed as Sunday of that week
+  $weekEndDate = date('Y-m-d', strtotime($weekStartDate . ' +6 days'));
+  $weekEndDateEsc = $conn->real_escape_string($weekEndDate);
+  $scoresEsc = $conn->real_escape_string($detailsJson);
+
+  // Check if evaluation exists already
+  $existing = getEvaluation($employeeId, $weekStartDate, $managerId);  // Make sure this function checks behavioral_evaluations table using evaluated_by=managerId!
+
+  if ($existing) {
+    // Update existing record (no feedback column in table, so omit)
+    $sql = "UPDATE behavioral_evaluations SET
+                    total_score = $totalScore,
+                    scores = '$scoresEsc',
+                    week_end_date = '$weekEndDateEsc'
+                WHERE employee_id = $employeeId
+                  AND week_start_date = '$weekStartDateEsc'
+                  AND evaluated_by = $managerId";
+  } else {
+    // Insert new record
+    $sql = "INSERT INTO behavioral_evaluations
+                (employee_id, evaluated_by, week_start_date, week_end_date, scores, total_score) VALUES
+                ($employeeId, $managerId, '$weekStartDateEsc', '$weekEndDateEsc', '$scoresEsc', $totalScore)";
+  }
+
+  if ($conn->query($sql)) {
+    return ['success' => true];
+  } else {
+    return ['success' => false, 'message' => $conn->error];
+  }
+}
+function getMonthlyEvaluationScores($startDate, $endDate)
+{
+  $conn = connect_to_database();
+  $evaluations = [];
+
+  // Escape and quote the dates
+  $start = $conn->real_escape_string($startDate);
+  $end = $conn->real_escape_string($endDate);
+
+  $sql = "
+    SELECT e.employee_id, u.full_name,
+           SUM(e.total_score) AS total_score,
+           COUNT(*) AS eval_count
+    FROM behavioral_evaluations e
+    JOIN users u ON e.employee_id = u.uid
+    WHERE e.week_start_date BETWEEN '$start' AND '$end'
+    GROUP BY e.employee_id
+    ORDER BY total_score DESC
+  ";
+
+  $result = $conn->query($sql);
+
+  if (!$result) {
+    die("Query error: " . $conn->error);
+  }
+
+  while ($row = $result->fetch_assoc()) {
+    $evaluations[] = $row;
+  }
+
+  return $evaluations;
+}

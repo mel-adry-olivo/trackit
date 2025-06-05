@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS `tasks`;
 DROP TABLE IF EXISTS `task_templates`;
 DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `notes`;
+DROP TABLE IF EXISTS `behavioral_evaluations`;
 
 CREATE TABLE `users` (
   `uid` INT AUTO_INCREMENT PRIMARY KEY,
@@ -73,6 +74,20 @@ CREATE TABLE notes (
     alarm_time DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE `behavioral_evaluations` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `employee_id` INT NOT NULL,
+  `evaluated_by` INT NOT NULL,
+  `week_start_date` DATE NOT NULL,
+  `week_end_date` DATE NOT NULL,
+  `scores` JSON NOT NULL, -- Stores all 10 Q scores like {"Q1":5,"Q2":3,...}
+  `total_score` INT NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`employee_id`) REFERENCES `users`(`uid`) ON DELETE CASCADE,
+  FOREIGN KEY (`evaluated_by`) REFERENCES `users`(`uid`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 
 -- ===========================================================

@@ -40,6 +40,14 @@ foreach ($tasks as $task) {
   }
 }
 
+
+$monthlyScores = getMonthlyEvaluationScores($monthStart, $monthEnd);
+$isEndOfMonth = date('j') == date('t');
+
+usort($monthlyScores, function ($a, $b) {
+  return $b['total_score'] <=> $a['total_score'];
+});
+
 ?>
 <!DOCTYPE html>
 
@@ -51,6 +59,24 @@ foreach ($tasks as $task) {
   <title>Manager Dashboard</title>
   <link rel="stylesheet" href="assets/css/styles.css" />
   <script src="./assets/js/main/clock.js" defer></script>
+  <script>
+    function startOverlayAnimation() {
+      const overlay = document.querySelector('.mgr-home-overlay');
+      const button = document.querySelector('.mgr-home-btn');
+
+      if (overlay.classList.contains('slide-up')) {
+        overlay.classList.remove('slide-up');
+        button.textContent = "Get Started";
+        document.body.style.overflow = 'hidden';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        overlay.classList.add('slide-up');
+        button.textContent = "Hey there!";
+        document.body.style.overflow = 'auto';
+        document.getElementById('main-dashboard').scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  </script>
 </head>
 
 <body class="manager">
@@ -132,7 +158,7 @@ foreach ($tasks as $task) {
       </header>
 
       <div class="mgr-search-filter">
-        <input type="text" id="searchBar" placeholder="Search a task" onkeyup="searchTasks()" />
+        <!-- <input type="text" id="searchBar" placeholder="Search a task" onkeyup="searchTasks()" /> -->
 
         <div class="row">
           <div class="emp-filters">
@@ -151,24 +177,25 @@ foreach ($tasks as $task) {
                   <h2>Current Leaderboard</h2>
                   <p>Monthly Performance Rankings</p>
                 </div>
-                <div class="compact-leaderboard">
-                  <div class="leaderboard-item rank-1">
-                    <span class="rank-number">1</span>
-                    <span class="employee-name">Jeric Palermo</span>
-                    <span class="rank-score"> pts</span>
+                <?php if ($isEndOfMonth && !empty($monthlyScores)): ?>
+                  <div class="compact-leaderboard">
+                    <?php foreach ($monthlyScores as $index => $emp): ?>
+                      <div class="leaderboard-item rank-<?= $index + 1 ?>">
+                        <span class="rank-number"><?= $index + 1 ?></span>
+                        <span class="employee-name"><?= htmlspecialchars($emp['full_name']) ?></span>
+                        <span class="rank-score"><?= intval($emp['total_score']) ?> pts</span>
+                      </div>
+                    <?php endforeach; ?>
                   </div>
-                  <div class="leaderboard-item rank-2">
-                    <span class="rank-number">2</span>
-                    <span class="employee-name">Stewart Sean Daylo</span>
-                    <span class="rank-score"> pts</span>
+                <?php else: ?>
+                  <div class="leaderboard-placeholder">
+                    <p style="text-align: center; font-size: 1.1rem; margin-top: 1rem;">
+                      Rankings will be available at the end of the month.
+                    </p>
                   </div>
-                  <div class="leaderboard-item rank-3">
-                    <span class="rank-number">3</span>
-                    <span class="employee-name">Marvin John Ramos</span>
-                    <span class="rank-score"> pts</span>
-                  </div>
-                </div>
+                <?php endif; ?>
               </div>
+            </a>
           </div>
         </div>
       </div>
@@ -287,11 +314,13 @@ foreach ($tasks as $task) {
             </tbody>
           </table>
         </div>
+
   </div>
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
   <script>
+
     $(document).ready(function () {
       const pinnedName = "Mr. Peter Paul Dayanan";
 
@@ -326,26 +355,6 @@ foreach ($tasks as $task) {
     });
   </script>
 
-  <script>
-    document.body.style.overflow = 'hidden';
-    function startOverlayAnimation() {
-      const overlay = document.querySelector('.mgr-home-overlay');
-      const button = document.querySelector('.mgr-home-btn');
-
-      if (overlay.classList.contains('slide-up')) {
-        overlay.classList.remove('slide-up');
-        button.textContent = "Get Started";
-        document.body.style.overflow = 'hidden';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        overlay.classList.add('slide-up');
-        button.textContent = "Hey there!";
-        document.body.style.overflow = 'auto';
-        document.getElementById('main-dashboard').scrollIntoView({ behavior: 'smooth' });
-      }
-    }
-
-  </script>
 </body>
 
 </html>

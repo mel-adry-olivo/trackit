@@ -172,6 +172,42 @@ $taskHistory = getPastTasks();
         }
 
       </script>
+      <script>
+        function searchTasks() {
+          const input = document.getElementById("searchBar").value.toLowerCase();
+          const rows = document.querySelectorAll("#mgr-th-taskBody > tr");
+
+          for (let i = 0; i < rows.length; i += 2) {
+            const summaryRow = rows[i];
+            const detailsRow = rows[i + 1];
+
+            const name = summaryRow.cells[0].textContent.toLowerCase();
+            const id = summaryRow.cells[1].textContent.toLowerCase();
+
+            // Include nested task details
+            const taskCells = detailsRow.querySelectorAll("tbody td");
+            let taskText = '';
+            taskCells.forEach(td => taskText += td.textContent.toLowerCase() + " ");
+
+            const combinedText = name + " " + id + " " + taskText;
+
+            if (combinedText.includes(input)) {
+              summaryRow.style.display = "";
+              detailsRow.style.display = "";
+
+              // Expand the row
+              if (!detailsRow.classList.contains("show")) {
+                detailsRow.classList.add("show");
+                summaryRow.querySelector("button").textContent = "Close History ▲";
+              }
+            } else {
+              summaryRow.style.display = "none";
+              detailsRow.style.display = "none";
+            }
+
+          }
+        }
+      </script>
 
 </body>
 

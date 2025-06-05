@@ -103,7 +103,7 @@ $userNotes = getAllUserNotes($_SESSION['uid']);
       </header>
 
       <div class="mgr-search-filter">
-        <input type="text" id="searchBar" placeholder="Search a note" onkeyup="searchTasks()" />
+        <!-- <input type="text" id="searchBar" placeholder="Search a note" onkeyup="searchTasks()" /> -->
 
         <div class="mgr-title">
           <h1><br>Personal Reminders</h1><br>

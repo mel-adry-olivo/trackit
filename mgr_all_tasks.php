@@ -19,7 +19,8 @@ $allTasks = getManagerAllTasks($userId);
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>All Tasks</title>
   <script src="./assets/js/main/clock.js" defer></script>
-  <link rel="stylesheet" h <link rel="stylesheet" href="assets/css/styles.css" />
+  <script src="./assets/js/main/search.js" defer></script>
+  <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 
 <body class="manager">
@@ -136,9 +137,6 @@ $allTasks = getManagerAllTasks($userId);
     </div>
   </div>
 
-
-
-
   <div id="deleteModal"
     style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:999;">
     <div
@@ -157,20 +155,6 @@ $allTasks = getManagerAllTasks($userId);
 </body>
 
 </html>
-
-<script>
-
-  function searchTasks() {
-    const input = document.getElementById("searchBar").value.toLowerCase();
-    const rows = document.querySelectorAll("#taskBody tr");
-
-    rows.forEach(row => {
-      const text = row.innerText.toLowerCase();
-      row.style.display = text.includes(input) ? "" : "none";
-    });
-  }
-
-</script>
 </body>
 
 </html>

@@ -129,6 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
   <title>Assign Task</title>
   <link rel="stylesheet" href="assets/css/styles.css" />
   <script src="./assets/js/main/clock.js" defer></script>
+  <script src="./assets/js/main/search.js" defer></script>
 </head>
 
 <body class="manager">
