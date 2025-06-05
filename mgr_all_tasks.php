@@ -10,6 +10,7 @@ $userCode = $_SESSION["user_code"] ?? null;
 
 $allTasks = getManagerAllTasks($userCode);
 $mgrTasks = getTasksOfManager($userCode);
+$today = date("Y-m-d");
 
 $taskTemplates = getAllTaskTemplates();
 $employees = getAllEmployees();
@@ -90,7 +91,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
       'data' => $newTask
     ]);
   } else {
-    // if createTask() returns an error string
     echo json_encode([
       'success' => false,
       'message' => is_string($result) ? $result : 'Failed to create task.'
