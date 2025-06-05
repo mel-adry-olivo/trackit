@@ -2,6 +2,12 @@
 
 session_start();
 
+$profileImage = isset($_SESSION['profile_image'])
+    && $_SESSION['profile_image']
+    ? "uploads/{$_SESSION['profile_image']}"
+    : "https://placehold.co/80";
+
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -22,9 +28,9 @@ session_start();
         <div class="acc-container">
             <div class="acc-header">
                 <div class="acc-header-text">
-                    <img src="https://placehold.co/80" id="acc-pic" alt="Profile Picture">
+                    <img src="<?php echo $profileImage; ?>" id="acc-pic" alt="Profile Picture">
                     <h2><?php echo $_SESSION['full_name']; ?></h2>
-                    <p>Employee ID: <?php echo $_SESSION['uid']; ?></p>
+                    <p>Employee ID: <?php echo $_SESSION['user_code']; ?></p>
                 </div>
             </div>
 

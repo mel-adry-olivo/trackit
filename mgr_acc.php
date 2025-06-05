@@ -1,6 +1,13 @@
 <?php
 
 session_start();
+
+
+$profileImage = isset($_SESSION['profile_image'])
+  && $_SESSION['profile_image']
+  ? "uploads/{$_SESSION['profile_image']}"
+  : "https://placehold.co/80";
+
 ?>
 
 <!DOCTYPE html>
@@ -24,9 +31,9 @@ session_start();
     <div class="acc-container">
       <div class="acc-header">
         <div class="acc-header-text">
-          <img src="https://placehold.co/80" id="acc-pic" alt="Profile Picture">
+          <img src="<?php echo $profileImage; ?>" id="acc-pic" alt="Profile Picture">
           <h2><?php echo $_SESSION['full_name']; ?></h2>
-          <p>Employee ID: <?php echo $_SESSION['uid']; ?></p>
+          <p>Employee ID: <?php echo $_SESSION['user_code']; ?></p>
         </div>
       </div>
 
@@ -76,7 +83,7 @@ session_start();
             <span><?php echo $_SESSION['address']; ?></span>
           </div>
         </div>
-        <a href="emp_settings.php"><button class="add-task-btn">Update</button></a>
+        <a href="./mgr_settings.php"><button class="add-task-btn">Update</button></a>
       </div>
 
       <div class="acc-content-employment">
@@ -121,7 +128,7 @@ session_start();
             <span><?php echo $_SESSION['emergency_phone']; ?></span>
           </div>
         </div>
-        <a href="emp_settings.php"><button class="add-task-btn">Update</button></a>
+        <a href="./mgr_settings.php"><button class="add-task-btn">Update</button></a>
       </div>
       <script>
         const accPic = document.getElementById('acc-pic');

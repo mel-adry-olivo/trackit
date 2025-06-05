@@ -5,7 +5,7 @@ include "database/queries.php";
 session_start();
 
 $userFullname = $_SESSION['full_name'] ?? '';
-$userId = $_SESSION["uid"] ?? 0;
+$userCode = $_SESSION["user_code"] ?? null;
 $taskHistory = getPastTasks();
 
 ?>
@@ -48,7 +48,7 @@ $taskHistory = getPastTasks();
       <header class="mgr-header">
         <div>
           <h1>Welcome, <?= $userFullname ?></h1>
-          <p class="mgr-id"><b>Employee</b> || ID No.: <?= str_pad($userId, 4, '0', STR_PAD_LEFT) ?>
+          <p class="mgr-id"><b>Employee</b> || ID No.: <?= $userCode ?>
           </p>
         </div>
         <div class="mgr-branch-info">
@@ -84,10 +84,10 @@ $taskHistory = getPastTasks();
             </tr>
           </thead>
           <tbody id="mgr-th-taskBody">
-            <?php foreach ($taskHistory as $uid => $data): ?>
+            <?php foreach ($taskHistory as $userCode => $data): ?>
               <tr>
                 <td><?= htmlspecialchars($data['name']) ?></td>
-                <td><?= 'UID' . str_pad($uid, 4, '0', STR_PAD_LEFT) ?></td>
+                <td><?= $userCode ?></td>
                 <td><button class="mgr-th-toggle-btn" onclick="mgrThToggleDetails(this)">View Details ▼</button></td>
               </tr>
               <tr class="mgr-th-details-row">

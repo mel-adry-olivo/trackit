@@ -7,7 +7,7 @@ session_start();
 $userFullname = $_SESSION['full_name'] ?? '';
 $userId = $_SESSION["uid"] ?? 0;
 
-$tasks = getEmployeeTasks($_SESSION["uid"]);
+$tasks = getEmployeeTasks($_SESSION["user_code"]);
 $today = date('Y-m-d');
 
 $statusMap = [
@@ -24,19 +24,59 @@ $statusCounts = [
 ];
 
 foreach ($tasks as &$task) {
-  if ($task['status'] !== 'done' && $task['end_date'] < $today) {
-    $task['status'] = 'Overdue';
-  } elseif (isset($statusMap[$task['status']])) {
+  if (isset($statusMap[$task['status']])) {
     $task['status'] = $statusMap[$task['status']];
+  }
+
+  if ($task['status'] !== 'Done' && $task['end_date'] < $today) {
+    $task['status'] = 'Overdue';
   }
 }
 unset($task);
+
 
 foreach ($tasks as $task) {
   if (isset($statusCounts[$task['status']])) {
     $statusCounts[$task['status']]++;
   }
 }
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_task_status') {
+  header('Content-Type: application/json');
+
+  // Pull and validate inputs
+  $taskId = $_POST['task_id'] ?? null;
+  $status = $_POST['status'] ?? null;
+
+  $validStatuses = ['Not Started', 'In Progress', 'Done', 'Overdue'];
+
+  if (!$taskId || !in_array($status, $validStatuses)) {
+    echo json_encode([
+      'success' => false,
+      'message' => 'Invalid task ID or status.'
+    ]);
+    exit;
+  }
+
+  $result = updateTaskStatus($taskId, $status);
+
+  if ($result === true) {
+    echo json_encode([
+      'success' => true,
+      'data' => [
+        'status' => $status
+      ]
+    ]);
+  } else {
+    echo json_encode([
+      'success' => false,
+      'message' => $result
+    ]);
+  }
+
+  exit;
+}
+
 
 ?>
 
@@ -101,18 +141,29 @@ foreach ($tasks as $task) {
               <th>TIMELINE</th>
               <th>STATUS</th>
               <th>PRIORITY</th>
+              <th>ACTIONS</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($tasks as $task): ?>
-              <tr>
+              <tr id="task-row-<?= $task['id'] ?>">
                 <td><?= $task['id'] ?></td>
                 <td><?= $task['task'] ?></td>
                 <td><?= $task['start_date'] ?></td>
                 <td><?= $task['end_date'] ?></td>
                 <td><?= $task['timeline'] ?></td>
-                <td><?= $task['status'] ?></td>
+                <td class="editable" data-field="status_display"><?= $task['status'] ?></td>
                 <td><?= $task['priority'] ?></td>
+                <td>
+                  <button type="button" onclick="enableRowEdit(<?= $task['id'] ?>)"
+                    id="editBtn-<?= $task['id'] ?>">Edit</button>
+                  <button type="submit" style="display:none;" id="saveBtn-<?= $task['id'] ?>"
+                    onclick="updateHiddenFieldsAndConfirm(event, <?= $task['id'] ?>)">Save</button>
+                  <button type="button" id="cancelBtn-<?= $task['id'] ?>" style="display:none;"
+                    onclick="cancelEdit(<?= $task['id'] ?>)">
+                    Cancel
+                  </button>
+                </td>
               </tr>
             <?php endforeach; ?>
           </tbody>
@@ -125,7 +176,117 @@ foreach ($tasks as $task) {
   <div class="fill-in-footer">
     <h3>All Rights Reserved by Paul Kaldi || Foreal Solutions || Hexed Devs @ 2025</h3>
   </div>
+  <script>
+    const originalValues = {};
 
+    function enableRowEdit(taskId) {
+
+      const row = document.querySelector(`#task-row-${taskId}`);
+      const editableFields = row.querySelectorAll('.editable');
+      originalValues[taskId] = {};
+
+      editableFields.forEach(cell => {
+        const field = cell.dataset.field;
+        const value = cell.textContent.trim();
+        originalValues[taskId][field] = value;
+
+        let input;
+        let inputName;
+        let inputType = 'text';
+
+        if (field === 'status_display') {
+          inputType = 'select-status';
+          inputName = 'status';
+        }
+
+        if (inputType === 'select-status') {
+          input = document.createElement('select');
+          input.name = inputName;
+          ['Not Started', 'In Progress', 'Done', 'Overdue'].forEach(level => {
+            const option = document.createElement('option');
+            option.value = level;
+            option.textContent = level;
+            if (level === value) option.selected = true;
+            input.appendChild(option);
+          });
+        }
+
+        cell.innerHTML = '';
+        cell.appendChild(input);
+      });
+
+      document.getElementById(`editBtn-${taskId}`).style.display = 'none';
+
+      document.getElementById(`saveBtn-${taskId}`).style.display = 'inline-block';
+      document.getElementById(`cancelBtn-${taskId}`).style.display = 'inline-block';
+    }
+
+    function cancelEdit(taskId) {
+      const row = document.querySelector(`#task-row-${taskId}`);
+      const editableFields = row.querySelectorAll('.editable');
+
+      editableFields.forEach(cell => {
+        const field = cell.dataset.field;
+        cell.textContent = originalValues[taskId][field];
+      });
+
+      document.getElementById(`saveBtn-${taskId}`).style.display = 'none';
+      document.getElementById(`cancelBtn-${taskId}`).style.display = 'none';
+
+      // re-show normal buttons
+      document.getElementById(`editBtn-${taskId}`).style.display = 'inline-block';
+    }
+
+    async function updateHiddenFieldsAndConfirm(event, taskId) {
+      event.preventDefault();
+
+      const row = document.querySelector(`#task-row-${taskId}`);
+      const statusSelect = row.querySelector('td[data-field="status_display"] select');
+
+      const payload = new URLSearchParams();
+      payload.append('action', 'update_task_status');
+      payload.append('task_id', taskId);
+      payload.append('status', statusSelect.value);
+
+      try {
+        const resp = await fetch(window.location.href, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: payload.toString(),
+        });
+
+        const result = await resp.json();
+        if (!result.success) {
+          alert('Error: ' + result.message);
+          return;
+        }
+
+        row.querySelector('td[data-field="status_display"]').textContent = result.data.status;
+
+        document.getElementById(`saveBtn-${taskId}`).style.display = 'none';
+        document.getElementById(`cancelBtn-${taskId}`).style.display = 'none';
+        document.getElementById(`editBtn-${taskId}`).style.display = 'inline-block';
+
+        showTemporaryMessage('Task status updated successfully.', 'success');
+
+      } catch (err) {
+        console.error(err);
+        alert('Unexpected error occurred.');
+      }
+    }
+
+    function showTemporaryMessage(message, type = 'info') {
+      const msg = document.createElement('div');
+      msg.textContent = message;
+      msg.className = `temp-msg ${type}`;
+      document.body.appendChild(msg);
+      setTimeout(() => msg.remove(), 3000);
+    }
+
+  </script>
 </body>
 
 </html>

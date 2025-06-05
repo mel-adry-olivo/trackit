@@ -6,22 +6,16 @@ include 'database/queries.php';
 session_start();
 
 $userFullname = $_SESSION['full_name'] ?? '';
-$userId = $_SESSION["uid"] ?? 0;
+$userCode = $_SESSION["user_code"] ?? null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_note'])) {
-  session_start();
-  $uid = $_SESSION['uid'] ?? null;
-
-  if (!$uid) {
-    die('Unauthorized access');
-  }
 
   $title = $_POST['title'] ?? '';
   $content = $_POST['content'] ?? '';
   $alarm = $_POST['alarm'] ?? null;
   $noteId = $_POST['note_id'] ?? null;  // <-- get note_id for update
 
-  $result = saveNote($uid, $title, $content, $alarm, $noteId);
+  $result = saveNote($userCode, $title, $content, $alarm, $noteId);
 
   if (!$result['success']) {
     echo "<script>alert('" . $result['message'] . "');</script>";
@@ -32,16 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_note'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_note_id'])) {
-  session_start();
-  $uid = $_SESSION['uid'] ?? null;
-
-  if (!$uid) {
-    die('Unauthorized access');
-  }
 
   $noteId = intval($_POST['delete_note_id']);
 
-  $result = deleteNote($uid, $noteId);
+  $result = deleteNote($userCode, $noteId);
 
   if (!$result['success']) {
     echo "<script>alert('" . addslashes($result['message']) . "');</script>";
@@ -53,8 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_note_id'])) {
 }
 
 
-
-$userNotes = getAllUserNotes($_SESSION['uid']);
+$userNotes = getAllUserNotes($userCode);
 
 ?>
 

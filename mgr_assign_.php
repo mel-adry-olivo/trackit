@@ -5,9 +5,9 @@ include "database/queries.php";
 session_start();
 
 $userFullname = $_SESSION['full_name'] ?? '';
-$userId = $_SESSION["uid"] ?? 0;
+$userCode = $_SESSION["user_code"] ?? null;
 
-$tasks = getManagerAllTasks($userId);
+$tasks = getManagerAllTasks($userCode);
 $today = date('Y-m-d');
 
 $taskTemplates = getAllTaskTemplates();
@@ -27,10 +27,12 @@ $statusCounts = [
 ];
 
 foreach ($tasks as &$task) {
-  if ($task['status'] !== 'done' && $task['end_date'] < $today) {
-    $task['status'] = 'Overdue';
-  } elseif (isset($statusMap[$task['status']])) {
+  if (isset($statusMap[$task['status']])) {
     $task['status'] = $statusMap[$task['status']];
+  }
+
+  if ($task['status'] !== 'Done' && $task['end_date'] < $today) {
+    $task['status'] = 'Overdue';
   }
 }
 unset($task);
@@ -53,7 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_
   $endDate = $_POST['end_date'] ?? null;
   $priority = $_POST['priority'] ?? null;
 
-
   $result = updateTask($taskId, $templateId, $startDate, $endDate, $priority);
 
   if ($result === true) {
@@ -73,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_
       'message' => $result
     ]);
   }
-  exit;  // <— stop PHP, don’t emit any HTML
+  exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_task') {
@@ -93,14 +94,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
   header('Content-Type: application/json');
 
   // Pull & validate inputs for a new task
-  $assigneeId = $_POST['assignee_id'] ?? null;
+  $assigneeCode = $_POST['assignee_code'] ?? null;
   $templateId = $_POST['template_id'] ?? null;
   $startDate = $_POST['start_date'] ?? null;
   $endDate = $_POST['end_date'] ?? null;
   $priority = $_POST['priority'] ?? null;
-  $managerId = $userId;
+  $managerCode = $userCode;
 
-  $result = createTask($managerId, $assigneeId, $templateId, $startDate, $endDate, $priority);
+  $result = createTask($managerCode, $assigneeCode, $templateId, $startDate, $endDate, $priority);
 
   if (is_int($result)) {
     $newTask = getTaskById($result);
@@ -179,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
       <header class="mgr-header">
         <div>
           <h1>Welcome, <?= $userFullname ?></h1>
-          <p class="mgr-id"><b>Employee</b> || ID No.: <?= str_pad($userId, 4, '0', STR_PAD_LEFT) ?>
+          <p class="mgr-id"><b>Employee</b> || ID No.: <?= $userCode ?>
           </p>
         </div>
         <div class="mgr-branch-info">
@@ -243,7 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
 
                   <tr id="task-row-<?= $task['id'] ?>">
                     <td><?= $task['assignee_name'] ?></td>
-                    <td><?= $task['assignee_id'] ?></td>
+                    <td><?= $task['assignee_code'] ?></td>
                     <td class="editable" data-field="task_display" data-template-id="<?= $task['template_id'] ?>">
                       <?= htmlspecialchars($task['task']) ?>
                     </td>
@@ -263,7 +264,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
                       </button>
                       <button type="button" onclick="showDeleteModal(<?= $task['id'] ?>)"
                         id="deleteBtn-<?= $task['id'] ?>">Delete</button>
-
                     </td>
                   </tr>
                 </form>
@@ -351,9 +351,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
     // Construct the HTML for the input fields inside the new row
     newRow.innerHTML = `
         <td>
-            <select name="assignee_id" class="new-task-assignee">
+            <select name="assignee_code" class="new-task-assignee">
                 <option value="">Select Assignee</option>
-                ${employees.map(emp => `<option value="${emp.uid}">${emp.full_name}</option>`).join('')}
+                ${employees.map(emp => `<option value="${emp.user_code}">${emp.full_name}</option>`).join('')}
             </select>
         </td>
         <td>-</td> <td>
@@ -390,28 +390,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
     if (newRow) {
       newRow.remove();
     }
-    // Show the "+ Add Task" button again
     document.querySelector('.add-task-btn').style.display = 'inline-block';
   }
 
-  // --- NEW `saveNewTask` function ---
   async function saveNewTask() {
     const newRow = document.getElementById('new-task-form-row');
-    const assigneeId = newRow.querySelector('[name="assignee_id"]').value;
+    const assigneeCode = newRow.querySelector('[name="assignee_code"]').value;
     const templateId = newRow.querySelector('[name="template_id"]').value;
     const startDate = newRow.querySelector('[name="start_date"]').value;
     const endDate = newRow.querySelector('[name="end_date"]').value;
     const priority = newRow.querySelector('[name="priority"]').value;
 
 
-    if (!assigneeId || !templateId || !startDate || !endDate) {
+    if (!assigneeCode || !templateId || !startDate || !endDate) {
       alert('Please fill out all required fields: Assignee, Task, Start Date, and End Date.');
       return;
     }
 
     const payload = new URLSearchParams();
     payload.append('action', 'add_task');
-    payload.append('assignee_id', assigneeId);
+    payload.append('assignee_code', assigneeCode);
     payload.append('template_id', templateId);
     payload.append('start_date', startDate);
     payload.append('end_date', endDate);
@@ -427,7 +425,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
       const result = await resp.json();
 
       if (result.success) {
-        // Remove the form row
         cancelNewTask();
         buildNewTaskRow(result.data);
         showTemporaryMessage('Task added successfully.', 'success');
@@ -440,20 +437,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
     }
   }
 
-  // --- NEW `buildNewTaskRow` function ---
   function buildNewTaskRow(task) {
     console.log(task);
     const tableBody = document.getElementById('taskBody');
     const addTaskRow = document.getElementById('add-task-row');
 
-    // 1) Create the TR
     const tr = document.createElement('tr');
     tr.id = `task-row-${task.id}`;
 
-    // 2) Build its innerHTML—including hidden inputs in the last cell
     tr.innerHTML = `
     <td>${task.assignee_name}</td>
-    <td>${task.assignee_id}</td>
+    <td>${task.assignee_code}</td>
     <td class="editable" data-field="task_display" data-template-id="${task.template_id}">
       ${task.task}
     </td>
@@ -482,10 +476,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
     </td>
   `;
 
-    // 3) Insert it right before the "+ Add Task" row
     tableBody.insertBefore(tr, addTaskRow);
 
-    // 4) Un‐hide the "+ Add Task" button again
     document.querySelector('.add-task-btn').style.display = 'inline-block';
   }
 

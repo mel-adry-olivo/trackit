@@ -3,15 +3,15 @@
 include 'database/database.php'; // adjust path as needed
 
 session_start();
+$userCode = $_SESSION['user_code'] ?? null;
 
+// to refactor to database/queries.php, pls don't forget me
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_field'])) {
-    $uid = $_SESSION['uid'] ?? null;
-    if (!$uid)
-        die('Unauthorized');
 
     $conn = connect_to_database();
     if (!$conn)
         die('DB connection failed');
+
 
     $allowedFields = ['civil_status', 'nationality', 'phone', 'email', 'address', 'emergency_contact_name', 'emergency_phone', 'emergency_relationship'];
     $field = $_POST['field'];
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_field'])) {
         if ($field === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
             $_SESSION['error_message'] = "Invalid email.";
         } else {
-            $sql = "UPDATE users SET `$field` = '$value' WHERE uid = $uid";
+            $sql = "UPDATE users SET `$field` = '$value' WHERE user_code = '$userCode'";
             if (mysqli_query($conn, $sql)) {
                 $_SESSION[$field] = $value;
                 $_SESSION['success_message'] = ucfirst(str_replace('_', ' ', $field)) . " updated successfully.";
@@ -38,6 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_field'])) {
     header("Location: " . $_SERVER['PHP_SELF']);
     exit();
 }
+
+
+$profileImage = isset($_SESSION['profile_image'])
+    && $_SESSION['profile_image']
+    ? "uploads/{$_SESSION['profile_image']}"
+    : "https://placehold.co/80";
 
 
 ?>
@@ -60,12 +66,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_field'])) {
         <div class="acc-container">
             <div class="acc-header">
                 <div class="acc-header-text">
-                    <div class="profile-pic" id="pic">
-                        <span>No image uploaded</span>
+                    <div class="upload-container">
+                        <div class="profile-pic" id="pic">
+                            <img src="<?= $profileImage ?>" alt="Profile Picture"
+                                style="width: 150px; height: 150px; object-fit: cover; border-radius: 50%;">
+                        </div>
+
+                        <form method="POST" action="./php/upload.php" enctype="multipart/form-data" id="uploadForm">
+                            <input type="file" id="fileInput" name="profile_image" accept="image/*" required>
+                            <button type="submit" name="upload_image" class="upload-button">Upload</button>
+                        </form>
                     </div>
-                    <input type="file" id="fileInput" accept="image/*" class="upload-btn">
                     <h2><?php echo $_SESSION['full_name']; ?></h2>
-                    <p>Employee ID: <?php echo $_SESSION['uid']; ?></p>
+                    <p>Employee ID: <?php echo $_SESSION['user_code']; ?></p>
                 </div>
             </div>
 

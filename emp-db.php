@@ -5,8 +5,7 @@ include "database/queries.php";
 session_start();
 
 $userFullname = $_SESSION['full_name'] ?? '';
-$userId = $_SESSION["uid"] ?? 0;
-
+$userId = $_SESSION["user_code"] ?? 0;
 
 $tasks = getEmployeeTasks($userId, 5);
 $today = date('Y-m-d');
@@ -25,13 +24,17 @@ $statusCounts = [
 ];
 
 foreach ($tasks as &$task) {
-  if ($task['status'] !== 'done' && $task['end_date'] < $today) {
-    $task['status'] = 'Overdue';
-  } elseif (isset($statusMap[$task['status']])) {
+  if (isset($statusMap[$task['status']])) {
     $task['status'] = $statusMap[$task['status']];
+  }
+
+  if ($task['status'] !== 'Done' && $task['end_date'] < $today) {
+    $task['status'] = 'Overdue';
   }
 }
 unset($task);
+
+
 
 foreach ($tasks as $task) {
   if (isset($statusCounts[$task['status']])) {

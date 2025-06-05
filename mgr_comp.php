@@ -230,17 +230,6 @@ $allUsers = getAllUsers();
       </div>
   </div>
 
-
-
-
-
-
-
-
-
-
-
-
   <script>
 
     const searchBox = document.querySelector('.mgr-comp-search-box');
@@ -275,9 +264,6 @@ $allUsers = getAllUsers();
 
     filterEmployees();
   </script>
-
-
-
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>

@@ -27,17 +27,17 @@ $questions = [
   "Q10. Professionalism: Demonstrates respect, responsibility, and appropriate conduct at work."
 ];
 
-$managerId = $_SESSION['uid'];
+$managerCode = $_SESSION['user_code'];
 $submissionMessage = "";
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $employeeId = isset($_POST['employee_id']) ? intval($_POST['employee_id']) : 0;
+  $employeeCode = isset($_POST['employee_code']) ? $_POST['employee_code'] : null;
 
-  if (!$employeeId) {
-    $submissionMessage = "Invalid employee ID.";
+  if (!$employeeCode) {
+    $submissionMessage = "Invalid employee code.";
   } else {
-    $answers = $_POST['answers'][$employeeId] ?? [];
+    $answers = $_POST['answers'][$employeeCode] ?? [];
 
     // Count how many questions were answered
     if (count($answers) !== count($questions)) {
@@ -55,10 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $feedback = "Evaluation completed for week of $startOfWeekDisplay";
         $detailsJson = json_encode($answers);
 
-        $result = saveOrUpdateScore($employeeId, $managerId, $totalScore, $feedback, $weekStartDate, $detailsJson);
+        $result = saveOrUpdateScore($employeeCode, $managerCode, $totalScore, $feedback, $weekStartDate, $detailsJson);
 
         if ($result['success']) {
           $submissionMessage = "✅ Evaluation successfully submitted.";
+          header('Location: ' . $_SERVER['PHP_SELF']);
         } else {
           $submissionMessage = "❌ Failed to save score: " . $result['message'];
         }
@@ -68,12 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 
+
 // Load employees list
 $employees = getAllEmployees();
 
-function getExistingEvaluationAnswers($employeeId, $weekStartDate, $managerId)
+function getExistingEvaluationAnswers($employeeCode, $weekStartDate, $managerCode)
 {
-  $eval = getEvaluation($employeeId, $weekStartDate, $managerId);
+  $eval = getEvaluation($employeeCode, $weekStartDate, $managerCode);
   if (!$eval)
     return [];
   return json_decode($eval['scores'], true) ?: [];
@@ -128,7 +130,7 @@ function getExistingEvaluationAnswers($employeeId, $weekStartDate, $managerId)
 
       <?php foreach ($employees as $emp):
         $summaryClass = "";
-        $existingEval = getEvaluation($emp['uid'], $weekStartDate, $managerId);
+        $existingEval = getEvaluation($emp['user_code'], $weekStartDate, $managerCode);
         $existingAnswers = $existingEval ? json_decode($existingEval['scores'], true) : [];
 
         // Change label based on whether evaluation exists
@@ -141,25 +143,25 @@ function getExistingEvaluationAnswers($employeeId, $weekStartDate, $managerId)
         <details>
           <summary class="<?= $summaryClass ?>"><?= $summaryLabel ?></summary>
           <form class="bt-form" method="POST" action="">
-            <input type="hidden" name="employee_id" value="<?= $emp['uid'] ?>" />
+            <input type="hidden" name="employee_code" value="<?= $emp['user_code'] ?>" />
             <?php foreach ($questions as $q):
               $savedValue = $existingAnswers[$q] ?? null;
               ?>
               <div class="bt-question">
-                <label for="<?= htmlspecialchars($q) ?>-<?= $emp['uid'] ?>"><?= htmlspecialchars($q) ?></label>
+                <label for="<?= htmlspecialchars($q) ?>-<?= $emp['user_code'] ?>"><?= htmlspecialchars($q) ?></label>
                 <div class="bt-radios">
                   <label>
-                    <input type="radio" name="answers[<?= $emp['uid'] ?>][<?= htmlspecialchars($q) ?>]" value="1"
+                    <input type="radio" name="answers[<?= $emp['user_code'] ?>][<?= htmlspecialchars($q) ?>]" value="1"
                       <?= ($savedValue == 1) ? 'checked' : '' ?> required />
                     1pt
                   </label>
                   <label>
-                    <input type="radio" name="answers[<?= $emp['uid'] ?>][<?= htmlspecialchars($q) ?>]" value="3"
+                    <input type="radio" name="answers[<?= $emp['user_code'] ?>][<?= htmlspecialchars($q) ?>]" value="3"
                       <?= ($savedValue == 3) ? 'checked' : '' ?> required />
                     3pt
                   </label>
                   <label>
-                    <input type="radio" name="answers[<?= $emp['uid'] ?>][<?= htmlspecialchars($q) ?>]" value="5"
+                    <input type="radio" name="answers[<?= $emp['user_code'] ?>][<?= htmlspecialchars($q) ?>]" value="5"
                       <?= ($savedValue == 5) ? 'checked' : '' ?> />
                     5pt
                   </label>

@@ -5,13 +5,11 @@ include 'database/queries.php';
 session_start();
 
 $userFullname = $_SESSION['full_name'] ?? '';
-$userId = $_SESSION["uid"] ?? 0;
+$userCode = $_SESSION["user_code"] ?? null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_note'])) {
-  session_start();
-  $uid = $_SESSION['uid'] ?? null;
 
-  if (!$uid) {
+  if (!$userCode) {
     die('Unauthorized access');
   }
 
@@ -20,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_note'])) {
   $alarm = $_POST['alarm'] ?? null;
   $noteId = $_POST['note_id'] ?? null;
 
-  $result = saveNote($uid, $title, $content, $alarm, $noteId);
+  $result = saveNote($userCode, $title, $content, $alarm, $noteId);
 
   if (!$result['success']) {
     echo "<script>alert('" . $result['message'] . "');</script>";
@@ -32,16 +30,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_note'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_note_id'])) {
-  session_start();
-  $uid = $_SESSION['uid'] ?? null;
 
-  if (!$uid) {
+  if (!$userCode) {
     die('Unauthorized access');
   }
 
   $noteId = intval($_POST['delete_note_id']);
 
-  $result = deleteNote($uid, $noteId);
+  $result = deleteNote($userCode, $noteId);
 
   if (!$result['success']) {
     echo "<script>alert('" . addslashes($result['message']) . "');</script>";
@@ -50,11 +46,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_note_id'])) {
     header("Location: " . $_SERVER['PHP_SELF']);
     exit();
   }
+
 }
 
 
 
-$userNotes = getAllUserNotes($_SESSION['uid']);
+$userNotes = getAllUserNotes($userCode);
 
 ?>
 <!DOCTYPE html>
@@ -93,7 +90,7 @@ $userNotes = getAllUserNotes($_SESSION['uid']);
       <header class="mgr-header">
         <div>
           <h1>Welcome, <?= $userFullname ?></h1>
-          <p class="emp-id"><b>Employee</b> || ID No.: <?= str_pad($userId, 4, '0', STR_PAD_LEFT) ?>
+          <p class="emp-id"><b>Employee</b> || ID No.: <?= $userCode ?>
           </p>
         </div>
         <div class="mgr-branch-info">
@@ -103,7 +100,6 @@ $userNotes = getAllUserNotes($_SESSION['uid']);
       </header>
 
       <div class="mgr-search-filter">
-        <!-- <input type="text" id="searchBar" placeholder="Search a note" onkeyup="searchTasks()" /> -->
 
         <div class="mgr-title">
           <h1><br>Personal Reminders</h1><br>
@@ -141,18 +137,18 @@ $userNotes = getAllUserNotes($_SESSION['uid']);
                 data-content="<?= htmlspecialchars($note['content']) ?>" data-alarm="<?= $note['alarm_time'] ?>"
                 onclick="mgrNotesOpenModal(this)">
 
-                <form method="POST" style="display:inline; float: right;">
+                <form method="POST" style="display:inline; position: absolute; right: 1rem; top: 0.5rem;">
                   <input type="hidden" name="delete_note_id" value="<?= $note['id'] ?>">
-                  <button type="button" class="mgr-notes-delete-btn"
-                    onclick="openDeleteModal(this, event)">Delete</button>
+                  <button type="button" class="mgr-notes-delete-btn" onclick="openDeleteModal(this, event)">X</button>
                 </form>
 
-                <h3><?= htmlspecialchars($note['title']) ?></h3>
-                <p><?= nl2br(htmlspecialchars($note['content'])) ?></p>
+                <div class="mgr-notes-col">
+                  <h3><?= htmlspecialchars($note['title']) ?></h3>
+                  <p><?= nl2br(htmlspecialchars($note['content'])) ?></p>
+                </div>
                 <?php if (!empty($note['alarm_time'])): ?>
                   <small>⏰ <?= date('M d, Y H:i', strtotime($note['alarm_time'])) ?></small>
                 <?php endif; ?>
-                <!-- Delete form -->
               </div>
             <?php endforeach; ?>
             <div class="mgr-notes-card mgr-notes-add-note" onclick="mgrNotesOpenModal()">+ Add Note</div>
@@ -189,15 +185,45 @@ $userNotes = getAllUserNotes($_SESSION['uid']);
           const notesGrid = document.getElementById('mgr-notes-grid');
           const viewContent = document.getElementById('mgr-notes-view-content');
 
-          function mgrNotesOpenModal() {
+          modal.addEventListener('click', function (event) {
+            // If the click is directly on the modal (the overlay), close the modal
+            if (event.target === modal) {
+              modal.style.display = 'none';
+            }
+          });
+
+          function mgrNotesOpenModal(card = null) {
             modal.style.display = 'flex';
-            titleInput.value = '';
-            textArea.value = '';
+
+            if (card) {
+              // Editing an existing note
+              const title = card.getAttribute('data-title') || '';
+              const content = card.getAttribute('data-content') || '';
+              const alarm = card.getAttribute('data-alarm') || '';
+              const noteId = card.getAttribute('data-id') || '';
+
+              document.getElementById('mgr-notes-title').value = title;
+              document.getElementById('mgr-notes-text').value = content;
+              document.getElementById('alarm-datetime').value = alarm;
+              document.getElementById('note-id').value = noteId;
+
+              editing = true;
+              editTarget = card;
+            } else {
+              // New note
+              document.getElementById('mgr-notes-title').value = '';
+              document.getElementById('mgr-notes-text').value = '';
+              document.getElementById('alarm-datetime').value = '';
+              document.getElementById('note-id').value = '';
+
+              editing = false;
+              editTarget = null;
+            }
+
             textArea.classList.remove('hidden');
-            editing = false;
-            editTarget = null;
             mode = 'note';
           }
+
 
           function mgrNotesCloseModal() {
             modal.style.display = 'none';
@@ -351,6 +377,35 @@ $userNotes = getAllUserNotes($_SESSION['uid']);
 
 
         </script>
+        <script>
+          window.addEventListener('DOMContentLoaded', () => {
+            const now = new Date().getTime();
+
+            document.querySelectorAll('.mgr-notes-card').forEach(card => {
+              const alarmTimeStr = card.getAttribute('data-alarm');
+              const title = card.getAttribute('data-title');
+
+              if (!alarmTimeStr) return;
+
+              const alarmTime = new Date(alarmTimeStr).getTime();
+              const delay = alarmTime - now;
+
+              if (delay > 0) {
+                Notification.requestPermission().then(permission => {
+                  if (permission === "granted") {
+                    setTimeout(() => {
+                      new Notification("⏰ Reminder: " + title, {
+                        body: "Your note's alarm is ringing.",
+                        icon: 'assets/svg/reminders.svg'
+                      });
+                    }, delay);
+                  }
+                });
+              }
+            });
+          });
+        </script>
+
 </body>
 
 </html>

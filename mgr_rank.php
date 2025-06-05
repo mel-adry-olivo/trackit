@@ -7,6 +7,8 @@ if ($_SESSION['role'] !== 'manager') {
   exit('Access denied.');
 }
 
+$mode = $_GET['mode'] ?? 'end-of-month';
+
 $monthStart = date('Y-m-01');
 $monthEnd = date('Y-m-t');
 
@@ -53,6 +55,15 @@ usort($monthlyScores, function ($a, $b) {
           <h1>Evaluation Rankings</h1>
           <p>See employee performance for the past month</p>
         </div>
+        <div class="mgr-rank-select">
+          <form method="GET">
+            <label for="display-rank">View Mode:</label>
+            <select name="mode" id="display-rank" onchange="this.form.submit()">
+              <option value="end-of-month" <?= $mode === 'end-of-month' ? 'selected' : '' ?>>End of Month</option>
+              <option value="latest" <?= $mode === 'latest' ? 'selected' : '' ?>>Latest Evaluations</option>
+            </select>
+          </form>
+        </div>
         <div class="mgr-branch-info">
           <span>Branch: <strong>WVSU-BINHI TBI</strong> | Time: </span>
           <span id="clock">--:--:--</span>
@@ -65,11 +76,14 @@ usort($monthlyScores, function ($a, $b) {
               <h2>Current Leaderboard</h2>
               <p>Monthly Performance Rankings</p>
             </div>
-            <?php if ($isEndOfMonth && !empty($monthlyScores)): ?>
+            <?php if (
+              ($mode === 'end-of-month' && $isEndOfMonth && !empty($monthlyScores)) ||
+              ($mode === 'latest' && !empty($monthlyScores))
+            ): ?>
               <div class="compact-leaderboard">
                 <?php foreach ($monthlyScores as $index => $emp): ?>
                   <div class="leaderboard-item rank-<?= $index + 1 ?>">
-                    <span class="rank-number"><?= $index + 1 ?></span>
+                    <span class="rank-number"><?= $index + 2 ?></span>
                     <span class="employee-name"><?= htmlspecialchars($emp['full_name']) ?></span>
                     <span class="rank-score"><?= intval($emp['total_score']) ?> pts</span>
                   </div>

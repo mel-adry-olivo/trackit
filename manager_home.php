@@ -5,11 +5,11 @@ include "database/queries.php";
 session_start();
 
 $userFullname = $_SESSION['full_name'] ?? '';
-$userId = $_SESSION["uid"] ?? 0;
+$userCode = $_SESSION["user_code"] ?? null;
 
 $allUsers = getAllUsers();
 
-$tasks = getManagerAllTasks($userId, 5);
+$tasks = getManagerAllTasks($userCode, 5);
 $today = date('Y-m-d');
 
 $statusMap = [
@@ -26,10 +26,12 @@ $statusCounts = [
 ];
 
 foreach ($tasks as &$task) {
-  if ($task['status'] !== 'done' && $task['end_date'] < $today) {
-    $task['status'] = 'Overdue';
-  } elseif (isset($statusMap[$task['status']])) {
+  if (isset($statusMap[$task['status']])) {
     $task['status'] = $statusMap[$task['status']];
+  }
+
+  if ($task['status'] !== 'Done' && $task['end_date'] < $today) {
+    $task['status'] = 'Overdue';
   }
 }
 unset($task);
@@ -125,16 +127,18 @@ usort($monthlyScores, function ($a, $b) {
             <div class="dates" id="dates">
               <?php
               $today = new DateTime();
-              $currentDate = (int) $today->format('d');
-              $currentMonth = (int) $today->format('m') - 1;
-              $currentYear = (int) $today->format('Y');
-              $currentDayOfWeek = (int) $today->format('w');
 
-              $startOffset = $currentDayOfWeek - 3;
+              // Get the day of the week (0 = Sunday, 6 = Saturday)
+              $dayOfWeek = (int) $today->format('w');
 
+              // Clone today's date and move to the start of the week (Sunday)
+              $startOfWeek = clone $today;
+              $startOfWeek->modify("-$dayOfWeek days");
+
+              // Print 7 days (Sunday to Saturday)
               for ($i = 0; $i < 7; $i++) {
-                $date = new DateTime();
-                $date->setDate($currentYear, $currentMonth + 1, $currentDate + $startOffset + $i);
+                $date = clone $startOfWeek;
+                $date->modify("+$i days");
                 $dayClass = 'day';
                 if ($date->format('Y-m-d') === $today->format('Y-m-d')) {
                   $dayClass .= ' today';
@@ -146,9 +150,10 @@ usort($monthlyScores, function ($a, $b) {
           </div>
         </div>
 
+
         <div>
           <h1>Welcome, <?= $userFullname ?></h1>
-          <p class="mgr-id"><b>Employee</b> || ID No.: <?= str_pad($userId, 4, '0', STR_PAD_LEFT) ?>
+          <p class="mgr-id"><b>Employee</b> || ID No.: <?= $userCode ?>
           </p>
         </div>
         <div class="mgr-branch-info">
@@ -220,7 +225,6 @@ usort($monthlyScores, function ($a, $b) {
                 <th>TIMELINE</th>
                 <th>STATUS</th>
                 <th>PRIORITY</th>
-                <th>ACTIONS</th>
               </tr>
             </thead>
             <tbody id="taskBody">
@@ -234,10 +238,6 @@ usort($monthlyScores, function ($a, $b) {
                   <td><?= $task['timeline'] ?></td>
                   <td><?= $task['status'] ?></td>
                   <td><?= $task['priority'] ?></td>
-                  <td>
-                    <button onclick="editTask(<?= $task['id'] ?>)">Edit</button>
-                    <button onclick="confirmDelete(<?= $task['id'] ?>)">Delete</button>
-                  </td>
                 </tr>
               <?php endforeach; ?>
             </tbody>

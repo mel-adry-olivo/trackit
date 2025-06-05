@@ -7,14 +7,14 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $role = $_POST['role'] ?? '';
-  $idNumber = $_POST['idNumber'] ?? '';
+  $userCode = $_POST['idNumber'] ?? '';  // treat as string now
   $password = $_POST['password'] ?? '';
 
   if (!$role) {
     $errors[] = 'Please select a user type.';
   }
-  if (!$idNumber) {
-    $errors[] = 'Please enter your ID number.';
+  if (!$userCode) {
+    $errors[] = 'Please enter your User Code.';
   }
   if (!$password) {
     $errors[] = 'Please enter your password.';
@@ -26,16 +26,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $errors[] = 'Database connection failed: ' . mysqli_connect_error();
     } else {
       $role_esc = mysqli_real_escape_string($conn, $role);
-      $idNumber_esc = (int) $idNumber;
+      $userCode_esc = mysqli_real_escape_string($conn, $userCode);
 
-      $query = "SELECT * FROM users WHERE uid = $idNumber_esc AND role = '$role_esc' LIMIT 1";
+      // Query by user_code instead of uid, treat user_code as string
+      $query = "SELECT * FROM users WHERE user_code = '$userCode_esc' AND role = '$role_esc' LIMIT 1";
       $result = mysqli_query($conn, $query);
 
       if ($result && mysqli_num_rows($result) === 1) {
         $user = mysqli_fetch_assoc($result);
 
         if (password_verify($password, $user['password'])) {
-          $_SESSION['uid'] = $user['uid'];
+          $_SESSION['user_code'] = $user['user_code'];
           $_SESSION['username'] = $user['username'];
           $_SESSION['role'] = $user['role'];
           $_SESSION['firstname'] = $user['firstname'];
@@ -56,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $_SESSION['emergency_contact_name'] = $user['emergency_contact_name'];
           $_SESSION['emergency_relationship'] = $user['emergency_relationship'];
           $_SESSION['emergency_phone'] = $user['emergency_phone'];
-          $_SESSION['profile_image'] = $user['profile_image'];  // new
+          $_SESSION['profile_image'] = $user['profile_image'];
 
           mysqli_free_result($result);
           mysqli_close($conn);
@@ -69,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'employee':
               header('Location: ./emp-db.php');
               exit;
-            case 'admin': // if admin exists
+            case 'admin':
               header('Location: ./admin/index.php');
               exit;
             default:
@@ -79,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $errors[] = 'Incorrect password.';
         }
       } else {
-        $errors[] = 'User not found with provided ID and role.';
+        $errors[] = 'User not found with provided User Code and role.';
       }
 
       if ($result) {
@@ -92,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -100,6 +102,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Log in</title>
   <link rel="stylesheet" href="assets/css/styles.css" type="text/css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .navbar {
+      position: fixed;
+      top: 0;
+    }
+  </style>
 </head>
 
 <body>

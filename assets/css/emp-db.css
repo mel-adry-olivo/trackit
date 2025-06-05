@@ -6,6 +6,17 @@ body {
 a {
   text-decoration: none;
 }
+
+input,
+select,
+textarea {
+  padding: 8px;
+  margin-top: 4px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 7px;
+  width: 100%;
+}
 /*Sidebar*/
 .layout {
   display: flex;
