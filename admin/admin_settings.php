@@ -135,6 +135,15 @@ $profileImage = isset($_SESSION['profile_image'])
         <button onclick="showEmergency()">EMERGENCY</button>
       </div>
       <div class="acc-content-personal">
+        <?php if (!empty($_SESSION['success_message'])): ?>
+          <div style="color: green;"><?= $_SESSION['success_message'];
+          unset($_SESSION['success_message']); ?></div>
+        <?php endif; ?>
+
+        <?php if (!empty($_SESSION['error_message'])): ?>
+          <div style="color: red;"><?= $_SESSION['error_message'];
+          unset($_SESSION['error_message']); ?></div>
+        <?php endif; ?>
         <h3>Personal Information</h3>
         <div class="info-grid">
           <div class="info-item">
