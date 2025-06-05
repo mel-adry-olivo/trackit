@@ -64,7 +64,7 @@ $userNotes = getAllUserNotes($userCode);
       <header class="emp-header">
         <div>
           <h1>Welcome, <?= $userFullname ?></h1>
-          <p class="emp-id"><b>Employee</b> || ID No.: <?= str_pad($userId, 4, '0', STR_PAD_LEFT) ?>
+          <p class="emp-id"><b>Employee</b> || ID No.: <?= $userCode ?>
           </p>
         </div>
         <div class="emp-branch-info">

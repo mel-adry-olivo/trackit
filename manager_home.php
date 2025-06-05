@@ -231,7 +231,7 @@ usort($monthlyScores, function ($a, $b) {
               <?php foreach ($tasks as $task): ?>
                 <tr>
                   <td><?= $task['assignee_name'] ?></td>
-                  <td><?= $task['assignee_id'] ?></td>
+                  <td><?= $task['assignee_code'] ?></td>
                   <td><?= $task['task'] ?></td>
                   <td><?= $task['start_date'] ?></td>
                   <td><?= $task['end_date'] ?></td>

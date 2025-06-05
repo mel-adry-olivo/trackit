@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal</title>
     <link rel="stylesheet" href="./assets/css/styles.css">
-
 </head>
 
 <body>
@@ -52,7 +51,6 @@
         </section>
     </main>
 
-    <!--FOOTER-->
     <footer class="footer-bg-personal">
         <div class="footer-container-personal">
             <div class="footer-top-personal">

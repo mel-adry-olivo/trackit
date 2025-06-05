@@ -12,11 +12,70 @@ track.insertBefore(lastClone, slides[0]);
 
 let allSlides = Array.from(track.children);
 let currentIndex = 1;
-let slideWidth = allSlides[0].getBoundingClientRect().width;
-
-track.style.transform = `translateX(-${slideWidth * currentIndex}px)`;
+let slideWidth; // Declare, but don't initialize here
 
 let isTransitioning = false;
+
+// Function to initialize or re-calculate carousel dimensions
+function initializeCarouselDimensions() {
+  // Ensure the first slide is rendered and has a width
+  slideWidth = allSlides[0].getBoundingClientRect().width;
+  // If slideWidth is still 0, there might be a deeper CSS issue or image loading problem
+  if (slideWidth === 0) {
+    console.warn(
+      "Carousel slide width is 0. Images or container might not be rendered yet."
+    );
+    // You might want to retry after a short delay, or check CSS.
+  }
+  track.style.transform = `translateX(-${slideWidth * currentIndex}px)`;
+  setActiveSlide();
+  updateCarousel(false); // Ensure correct initial positioning without animation
+}
+
+// Load all images in the carousel before initializing
+const carouselImages = track.querySelectorAll("img"); // If your images are <img> tags
+const backgroundImages = slides
+  .map((slide) => {
+    // For background-image styles
+    const style = getComputedStyle(slide);
+    const backgroundImage = style.backgroundImage;
+    if (backgroundImage && backgroundImage !== "none") {
+      const match = backgroundImage.match(/url\(['"]?(.*?)['"]?\)/);
+      return match ? match[1] : null;
+    }
+    return null;
+  })
+  .filter(Boolean); // Filter out nulls
+
+const allImageUrls = [
+  ...Array.from(carouselImages).map((img) => img.src),
+  ...backgroundImages,
+];
+let imagesLoadedCount = 0;
+
+if (allImageUrls.length > 0) {
+  allImageUrls.forEach((url) => {
+    const img = new Image();
+    img.src = url;
+    img.onload = () => {
+      imagesLoadedCount++;
+      if (imagesLoadedCount === allImageUrls.length) {
+        // All carousel images are loaded
+        initializeCarouselDimensions();
+      }
+    };
+    img.onerror = () => {
+      console.error(`Failed to load image: ${url}`);
+      imagesLoadedCount++; // Still increment to avoid blocking if one image fails
+      if (imagesLoadedCount === allImageUrls.length) {
+        initializeCarouselDimensions();
+      }
+    };
+  });
+} else {
+  // No images found, initialize directly (e.g., if content is just text)
+  initializeCarouselDimensions();
+}
 
 function setActiveSlide() {
   allSlides.forEach((slide) => slide.classList.remove("active"));

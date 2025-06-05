@@ -14,13 +14,11 @@ session_start();
     <title>Home</title>
     <link rel="stylesheet" href="assets/css/styles.css" type="text/css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-o8N/0jV5M8okc00zOjGZGH7mn6ZlTAiJXZp3d5QaNzk=" crossorigin="" />
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-pE40IE6LKwY6gRbyYN2elF04qD+3IEXjQw1iBfW70+0=" crossorigin=""></script>
-    <script src="./assets/js/main/home.js" defer></script>
-    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous" defer></script>
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-    <script src="./assets/js/main/clock.js" defer></script>
+    <!-- <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous" defer></script> -->
 </head>
 
 <body>
@@ -125,7 +123,7 @@ session_start();
     </div>
     <div class="carousel-container animate-on-scroll">
         <div class="carousel-track">
-            <div class="carousel-slide" style="background-image: url('assets/img/PHOTO4.jpg');">
+            <div class="carousel-slide" style="background-image: url('./assets/img/PHOTO4.jpg');">
                 <div class="carousel-slide-content">
                     <h4>Instant Updates | Alert Notifications</h4>
                     <h3>Real-Time Alerts & Reminders</h3>
@@ -133,7 +131,7 @@ session_start();
                         service.</p>
                 </div>
             </div>
-            <div class="carousel-slide" style="background-image: url('assets/img/PHOTO1.jpg');">
+            <div class="carousel-slide" style="background-image: url('./assets/img/PHOTO1.jpg');">
                 <div class="carousel-slide-content">
                     <h4>Task Assignments | Baristas & Staffs</h4>
                     <h3>Improve Team Collaboration</h3>
@@ -141,14 +139,14 @@ session_start();
                         efficiency.</p>
                 </div>
             </div>
-            <div class="carousel-slide" style="background-image: url('assets/img/PHOTO2.jpg');">
+            <div class="carousel-slide" style="background-image: url('./assets/img/PHOTO2.jpg');">
                 <div class="carousel-slide-content">
                     <h4>Efficiency Boost | Managers & Staffs</h4>
                     <h3>Saves Both Time and Effort</h3>
                     <p>Automated task assignments—freeing up time for managers to focus on customer experience.</p>
                 </div>
             </div>
-            <div class="carousel-slide" style="background-image: url('assets/img/PHOTO3.jpg');">
+            <div class="carousel-slide" style="background-image: url('./assets/img/PHOTO3.jpg');">
                 <div class="carousel-slide-content">
                     <h4>Daily Operations | All Staff Levels</h4>
                     <h3>Smooth Operation and Management</h3>
@@ -285,6 +283,7 @@ session_start();
             </div>
         </div>
     </footer>
+    <script src="./assets/js/main/home.js" defer></script>
 </body>
 
 </html>
