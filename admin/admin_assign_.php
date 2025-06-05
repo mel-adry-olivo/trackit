@@ -131,6 +131,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
   <link rel="stylesheet" href="../assets/css/styles.css" />
   <script src="../assets/js/main/clock.js" defer></script>
   <script src="../assets/js/main/search.js" defer></script>
+  <script>
+    function startOverlayAnimation() {
+      const overlay = document.querySelector('.mgr-home-overlay');
+      const button = document.querySelector('.mgr-home-btn');
+
+      if (overlay.classList.contains('slide-up')) {
+        overlay.classList.remove('slide-up');
+        button.textContent = "Get Started";
+        document.body.style.overflow = 'hidden';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        overlay.classList.add('slide-up');
+        button.textContent = "Hey there!";
+        document.body.style.overflow = 'auto';
+      }
+    }
+  </script>
 </head>
 
 <body class="manager">
@@ -707,23 +724,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
   }
 
 
-  document.body.style.overflow = 'hidden';
-  function startOverlayAnimation() {
-    const overlay = document.querySelector('.mgr-home-overlay');
-    const button = document.querySelector('.mgr-home-btn');
 
-    if (overlay.classList.contains('slide-up')) {
-      overlay.classList.remove('slide-up');
-      button.textContent = "Get Started";
-      document.body.style.overflow = 'hidden';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      overlay.classList.add('slide-up');
-      button.textContent = "Hey there!";
-      document.body.style.overflow = 'auto';
-      document.getElementById('main-dashboard').scrollIntoView({ behavior: 'smooth' });
-    }
-  }
 
 
 </script>
