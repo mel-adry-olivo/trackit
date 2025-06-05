@@ -40,14 +40,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_field'])) {
   exit();
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
+  if (!$userCode)
+    die('Unauthorized');
+
+  $conn = connect_to_database();
+  if (!$conn)
+    die('DB connection failed');
+
+  $currentPassword = $_POST['current_password'] ?? '';
+  $newPassword = $_POST['new_password'] ?? '';
+  $confirmPassword = $_POST['confirm_password'] ?? '';
+
+  // Get current password hash from DB
+  $query = "SELECT password FROM users WHERE user_code = '$userCode'";
+  $result = mysqli_query($conn, $query);
+  $user = mysqli_fetch_assoc($result);
+
+  if (!$user || !password_verify($currentPassword, $user['password'])) {
+    $_SESSION['error_message'] = "Current password is incorrect.";
+  } elseif ($newPassword !== $confirmPassword) {
+    $_SESSION['error_message'] = "New passwords do not match.";
+  } elseif (strlen($newPassword) < 6) {
+    $_SESSION['error_message'] = "Password must be at least 6 characters.";
+  } else {
+    $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+    $update = "UPDATE users SET password = '$hashedPassword' WHERE user_code = '$userCode'";
+    if (mysqli_query($conn, $update)) {
+      $_SESSION['success_message'] = "Password changed successfully.";
+    } else {
+      $_SESSION['error_message'] = "Password update failed: " . mysqli_error($conn);
+    }
+  }
+
+  mysqli_close($conn);
+  header("Location: " . $_SERVER['PHP_SELF']);
+  exit();
+}
+
+
 $profileImage = isset($_SESSION['profile_image'])
   && $_SESSION['profile_image']
   ? "uploads/{$_SESSION['profile_image']}"
   : "https://placehold.co/80";
 
-
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -67,7 +104,6 @@ $profileImage = isset($_SESSION['profile_image'])
 
 <body class="manager">
   <div class="mgr-container ">
-    <!-- Sidebar -->
     <?php include "./php/includes/mgr_sidebar.php"; ?>
     <div class="acc-container">
       <div class="acc-header">
@@ -226,6 +262,25 @@ $profileImage = isset($_SESSION['profile_image'])
             <strong>Role</strong>
             <span><?= htmlspecialchars(ucfirst($_SESSION['role']) ?? '') ?></span>
           </div>
+        </div>
+        <div class="acc-content-password">
+          <h3>Change Password</h3>
+          <form method="POST" style="max-width: 400px;">
+            <div class="info-item">
+              <strong>Current Password</strong>
+              <input type="password" name="current_password" class="edit-input" required>
+            </div>
+            <div class="info-item">
+              <strong>New Password</strong>
+              <input type="password" name="new_password" class="edit-input" required>
+            </div>
+            <div class="info-item">
+              <strong>Confirm New Password</strong>
+              <input type="password" name="confirm_password" class="edit-input" required>
+            </div>
+            <button type="submit" name="change_password" class="add-task-btn" style="margin-top: 10px;">Change
+              Password</button>
+          </form>
         </div>
       </div>
 
