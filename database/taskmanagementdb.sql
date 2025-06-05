@@ -2,6 +2,7 @@
 DROP TABLE IF EXISTS `tasks`;
 DROP TABLE IF EXISTS `task_templates`;
 DROP TABLE IF EXISTS `users`;
+DROP TABLE IF EXISTS `notes`;
 
 CREATE TABLE `users` (
   `uid` INT AUTO_INCREMENT PRIMARY KEY,
@@ -100,7 +101,38 @@ INSERT INTO `users`
   '1995-02-20', 'Chicago', 'Male', 'Single', 'American', '555-7890', '789 Pine St, Chicago, IL',
   '2023-03-01', NULL, '2023-03-01', 'Support Specialist',
   'Jane Doe', 'Sister', '555-3456', NULL
+),
+(
+  'amy.santiago', 'Amy', 'Santiago', 'amy.santiago@example.com', '$2y$10$5cAmyHashedPassHere', 'employee',
+  '1991-03-12', 'Brooklyn', 'Female', 'Married', 'American', '555-1111', '321 4th St, Brooklyn, NY',
+  '2024-02-15', NULL, '2024-02-15', 'Barista',
+  'Jake Peralta', 'Husband', '555-2222', NULL
+),
+(
+  'terry.j', 'Terry', 'Jeffords', 'terry.jeffords@example.com', '$2y$10$5cTerryHashedPassHere', 'employee',
+  '1980-06-30', 'New York', 'Male', 'Married', 'American', '555-3333', '654 5th Ave, New York, NY',
+  '2023-11-01', NULL, '2023-11-01', 'Inventory Coordinator',
+  'Sharon Jeffords', 'Wife', '555-4444', NULL
+),
+(
+  'gina.linetti', 'Gina', 'Linetti', 'gina.linetti@example.com', '$2y$10$5cGinaHashedPassHere', 'employee',
+  '1985-04-17', 'Queens', 'Female', 'Single', 'American', '555-5555', '987 6th Ave, Queens, NY',
+  '2025-01-05', NULL, '2025-01-05', 'Customer Relations',
+  'Darlene Linetti', 'Mother', '555-6666', NULL
+),
+(
+  'rosa.diaz', 'Rosa', 'Diaz', 'rosa.diaz@example.com', '$2y$10$5cRosaHashedPassHere', 'employee',
+  '1988-09-22', 'Bronx', 'Female', 'Single', 'American', '555-7777', '432 7th Ave, Bronx, NY',
+  '2024-06-20', NULL, '2024-06-20', 'Maintenance Lead',
+  'Unknown', 'Friend', '555-8888', NULL
+),
+(
+  'charles.boyle', 'Charles', 'Boyle', 'charles.boyle@example.com', '$2y$10$5cBoyleHashedPassHere', 'employee',
+  '1982-11-08', 'Brooklyn', 'Male', 'Divorced', 'American', '555-9999', '213 8th Ave, Brooklyn, NY',
+  '2023-08-10', NULL, '2023-08-10', 'Kitchen Supervisor',
+  'Genevieve Mirren-Carter', 'Partner', '555-0001', NULL
 );
+
 
 
 -- ===========================================================
@@ -126,3 +158,23 @@ INSERT INTO `task_templates` (`description`) VALUES
 INSERT INTO `tasks` (`assigned_by`, `assigned_to`, `template_id`, `timeline`, `status`, `start_date`, `end_date`, `priority`) VALUES
 (1, 3, 5, '2 days', 'In Progress', '2025-03-18', '2025-03-20', 'High'),
 (2, 3, 14, '3 days', 'Not Started', '2025-04-10', '2025-04-12', 'Medium');
+
+-- Completed Tasks (status: Done, end_date in past)
+INSERT INTO `tasks` (`assigned_by`, `assigned_to`, `template_id`, `timeline`, `status`, `start_date`, `end_date`, `priority`) VALUES
+(1, 3, 1, '3 days', 'Done', '2025-02-01', '2025-02-03', 'High'),
+(2, 3, 2, '1 day', 'Done', '2025-01-15', '2025-01-15', 'Low');
+
+-- Overdue Tasks (status: Overdue, end_date in past)
+INSERT INTO `tasks` (`assigned_by`, `assigned_to`, `template_id`, `timeline`, `status`, `start_date`, `end_date`, `priority`) VALUES
+(1, 3, 3, '2 days', 'Overdue', '2025-05-01', '2025-05-03', 'Medium'),
+(2, 3, 4, '1 week', 'Overdue', '2025-04-20', '2025-04-27', 'High');
+
+-- Active In Progress (status: In Progress, end_date in future)
+INSERT INTO `tasks` (`assigned_by`, `assigned_to`, `template_id`, `timeline`, `status`, `start_date`, `end_date`, `priority`) VALUES
+(1, 3, 6, '4 days', 'In Progress', '2025-06-01', '2025-06-04', 'Medium'),
+(2, 3, 7, '2 days', 'In Progress', '2025-06-03', '2025-06-05', 'Low');
+
+-- Upcoming Tasks (status: Not Started, future dates)
+INSERT INTO `tasks` (`assigned_by`, `assigned_to`, `template_id`, `timeline`, `status`, `start_date`, `end_date`, `priority`) VALUES
+(1, 3, 8, '2 days', 'Not Started', '2025-06-10', '2025-06-11', 'High'),
+(2, 3, 9, '1 day', 'Not Started', '2025-06-15', '2025-06-15', 'Low');

@@ -19,6 +19,8 @@ session_start();
         integrity="sha256-pE40IE6LKwY6gRbyYN2elF04qD+3IEXjQw1iBfW70+0=" crossorigin=""></script>
     <script src="./assets/js/main/home.js" defer></script>
     <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous" defer></script>
+
+    <script src="./assets/js/main/clock.js" defer></script>
 </head>
 
 <body>
@@ -181,12 +183,11 @@ session_start();
                     <source src="assets/video/demo.mp4" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
-                <div class="info-see-widget info-see-widget-top animate-on-scroll digital-clock">
+                <div class="info-see-widget info-see-widget-top digital-clock">
                     <div class="info-see-clock-label">Current Time</div>
                     <div id="currentTime" class="info-see-clock-display">--:--</div>
                 </div>
-                <div class="info-see-location-widget animate-on-scroll">
-
+                <div class="info-see-location-widget ">
                     <div class="info-see-location-map"
                         style="border-radius: 10px; overflow: hidden; margin-bottom: 1rem;">
                         <iframe
@@ -211,12 +212,12 @@ session_start();
                         </button>
                     </div>
                 </div>
-                <div class="info-see-waveform animate-on-scroll">
+                <!-- <div class="info-see-waveform ">
                     <div class="info-see-bar"></div>
                     <div class="info-see-bar"></div>
                     <div class="info-see-bar"></div>
                     <div class="info-see-bar"></div>
-                </div>
+                </div> -->
 
         </main>
     </section>
@@ -239,7 +240,7 @@ session_start();
                 style="padding: 10px 15px; background-color: #00252e; color: #fff; border: none; border-radius: 5px; cursor: pointer;">Submit</button>
         </div>
     </div>
-    <footer class="footer-bg animate-on-scroll">
+    <footer class="footer-bg ">
         <div class="footer-container">
             <div class="footer-top">
                 <h2>TRACKIT®</h2>

@@ -1,3 +1,125 @@
+<?php
+
+include "database/queries.php";
+
+session_start();
+
+$userFullname = $_SESSION['full_name'] ?? '';
+$userId = $_SESSION["uid"] ?? 0;
+
+$tasks = getManagerAllTasks($userId);
+$today = date('Y-m-d');
+
+$taskTemplates = getAllTaskTemplates();
+$employees = getAllEmployees();
+
+$statusMap = [
+  'working' => 'In Progress',
+  'done' => 'Done',
+  'stuck' => 'Not Started'
+];
+
+$statusCounts = [
+  'Not Started' => 0,
+  'In Progress' => 0,
+  'Done' => 0,
+  'Overdue' => 0
+];
+
+foreach ($tasks as &$task) {
+  if ($task['status'] !== 'done' && $task['end_date'] < $today) {
+    $task['status'] = 'Overdue';
+  } elseif (isset($statusMap[$task['status']])) {
+    $task['status'] = $statusMap[$task['status']];
+  }
+}
+unset($task);
+
+foreach ($tasks as $task) {
+  if (isset($statusCounts[$task['status']])) {
+    $statusCounts[$task['status']]++;
+  }
+}
+
+$errorMessage = '';
+$successMessage = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_task') {
+  header('Content-Type: application/json');
+
+  // pull & validate inputs
+  $taskId = $_POST['task_id'] ?? null;
+  $templateId = $_POST['template_id'] ?? null;
+  $startDate = $_POST['start_date'] ?? null;
+  $endDate = $_POST['end_date'] ?? null;
+  $priority = $_POST['priority'] ?? null;
+
+
+  $result = updateTask($taskId, $templateId, $startDate, $endDate, $priority);
+
+  if ($result === true) {
+    echo json_encode([
+      'success' => true,
+      'data' => [
+        'task' => getTemplateDescription($templateId),
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+        'priority' => $priority
+      ]
+    ]);
+  } else {
+    // if updateTask() returns an error string
+    echo json_encode([
+      'success' => false,
+      'message' => $result
+    ]);
+  }
+  exit;  // <— stop PHP, don’t emit any HTML
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_task') {
+  header('Content-Type: application/json');
+  $taskId = $_POST['task_id'] ?? null;
+  $result = deleteTask($taskId);
+
+  if ($result === true) {
+    echo json_encode(['success' => true]);
+  } else {
+    echo json_encode(['success' => false, 'message' => $result]);
+  }
+  exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_task') {
+  header('Content-Type: application/json');
+
+  // Pull & validate inputs for a new task
+  $assigneeId = $_POST['assignee_id'] ?? null;
+  $templateId = $_POST['template_id'] ?? null;
+  $startDate = $_POST['start_date'] ?? null;
+  $endDate = $_POST['end_date'] ?? null;
+  $priority = $_POST['priority'] ?? null;
+  $managerId = $userId;
+
+  $result = createTask($managerId, $assigneeId, $templateId, $startDate, $endDate, $priority);
+
+  if (is_int($result)) {
+    $newTask = getTaskById($result);
+    echo json_encode([
+      'success' => true,
+      'data' => $newTask
+    ]);
+  } else {
+    // if createTask() returns an error string
+    echo json_encode([
+      'success' => false,
+      'message' => is_string($result) ? $result : 'Failed to create task.'
+    ]);
+  }
+  exit;
+}
+
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -6,6 +128,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Assign Task</title>
   <link rel="stylesheet" href="assets/css/styles.css" />
+  <script src="./assets/js/main/clock.js" defer></script>
 </head>
 
 <body class="manager">
@@ -38,10 +161,25 @@
 
     <!-- Main Content -->
     <main class="mgr-main-content">
+      <?php if (!empty($errorMessage)): ?>
+        <div class="error-message"
+          style="background: #f8d7da; color: #721c24; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
+          <?= htmlspecialchars($errorMessage) ?>
+        </div>
+      <?php endif; ?>
+
+      <?php if (!empty($successMessage)): ?>
+        <div class="success-message"
+          style="background: #d4edda; color: #155724; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
+          <?= htmlspecialchars($successMessage) ?>
+        </div>
+      <?php endif; ?>
+
       <header class="mgr-header">
         <div>
-          <h1>Welcome, Glenda</h1>
-          <p class="mgr-id"><b>Branch Manager </b> || ID No.: 0001</p>
+          <h1>Welcome, <?= $userFullname ?></h1>
+          <p class="mgr-id"><b>Employee</b> || ID No.: <?= str_pad($userId, 4, '0', STR_PAD_LEFT) ?>
+          </p>
         </div>
         <div class="mgr-branch-info">
           <span>Branch: <strong>WVSU-BINHI TBI</strong> | Time: </span>
@@ -58,23 +196,14 @@
             connection with them!</p><br><br><br>
         </div>
 
-
-        <div class="mgr-assign-mgr-filters">
-          <button class="mgr-assign-btn-not-started" onclick="filterStatus('Not Started')">
-            Not Started <span id="mgr-assign-count-not-started"></span>
-          </button>
-          <button class="mgr-assign-btn-in-progress" onclick="filterStatus('In Progress')">
-            In Progress <span id="mgr-assign-count-in-progress"></span>
-          </button>
-          <button class="mgr-assign-btn-done" onclick="filterStatus('Done')">
-            Done <span id="mgr-assign-count-done"></span>
-          </button>
-          <button class="mgr-assign-btn-overdue" onclick="filterStatus('Overdue')">
-            Overdue <span id="mgr-assign-count-overdue"></span>
-          </button>
+        <div class="emp-filters">
+          <button type="button">Not Started <span
+              id="count-not-started"><?php echo $statusCounts['Not Started']; ?></span></button>
+          <button type="button">In Progress <span
+              id="count-in-progress"><?php echo $statusCounts['In Progress']; ?></span></button>
+          <button type="button">Done <span id="count-done"><?php echo $statusCounts['Done']; ?></span></button>
+          <button type="button">Overdue <span id="count-overdue"><?php echo $statusCounts['Overdue']; ?></span></button>
         </div>
-
-
 
         <div class="mgr-title">
           <h1>Employee Task Overview</h1><br>
@@ -85,8 +214,9 @@
               <tr>
                 <th>ASSIGNEE</th>
                 <th>ID NO.</th>
-                <th>TASKS</th>
-                <th>DATE</th>
+                <th>TASK</th>
+                <th>START DATE</th>
+                <th>END DATE</th>
                 <th>TIMELINE</th>
                 <th>STATUS</th>
                 <th>PRIORITY</th>
@@ -94,6 +224,49 @@
               </tr>
             </thead>
             <tbody id="taskBody">
+              <?php foreach ($tasks as $task): ?>
+                <form method="POST">
+                  <input type="hidden" name="action" value="edit_task">
+                  <input type="hidden" name="task_id" value="<?= $task['id'] ?>">
+                  <input type="hidden" name="template_id" id="template_id_hidden_<?= $task['id'] ?>"
+                    value="<?= $task['template_id'] ?>">
+                  <input type="hidden" name="task_description" id="task_description_hidden_<?= $task['id'] ?>"
+                    value="<?= htmlspecialchars($task['task']) ?>">
+
+                  <input type="hidden" name="start_date" id="start_date_hidden_<?= $task['id'] ?>"
+                    value="<?= $task['start_date'] ?>">
+                  <input type="hidden" name="end_date" id="end_date_hidden_<?= $task['id'] ?>"
+                    value="<?= $task['end_date'] ?>">
+                  <input type="hidden" name="priority" id="priority_hidden_<?= $task['id'] ?>"
+                    value="<?= $task['priority'] ?>">
+
+                  <tr id="task-row-<?= $task['id'] ?>">
+                    <td><?= $task['assignee_name'] ?></td>
+                    <td><?= $task['assignee_id'] ?></td>
+                    <td class="editable" data-field="task_display" data-template-id="<?= $task['template_id'] ?>">
+                      <?= htmlspecialchars($task['task']) ?>
+                    </td>
+                    <td class="editable" data-field="start_date_display"><?= $task['start_date'] ?></td>
+                    <td class="editable" data-field="end_date_display"><?= $task['end_date'] ?></td>
+                    <td><?= $task['timeline'] ?></td>
+                    <td><?= $task['status'] ?></td>
+                    <td class="editable" data-field="priority_display"><?= $task['priority'] ?></td>
+                    <td>
+                      <button type="button" onclick="enableRowEdit(<?= $task['id'] ?>)"
+                        id="editBtn-<?= $task['id'] ?>">Edit</button>
+                      <button type="submit" style="display:none;" id="saveBtn-<?= $task['id'] ?>"
+                        onclick="updateHiddenFieldsAndConfirm(event, <?= $task['id'] ?>)">Save</button>
+                      <button type="button" id="cancelBtn-<?= $task['id'] ?>" style="display:none;"
+                        onclick="cancelEdit(<?= $task['id'] ?>)">
+                        Cancel
+                      </button>
+                      <button type="button" onclick="showDeleteModal(<?= $task['id'] ?>)"
+                        id="deleteBtn-<?= $task['id'] ?>">Delete</button>
+
+                    </td>
+                  </tr>
+                </form>
+              <?php endforeach; ?>
 
               <tr id="add-task-row">
                 <td colspan="7" style="text-align: left;">
@@ -102,6 +275,7 @@
               </tr>
             </tbody>
           </table>
+
         </section>
     </main>
   </div>
@@ -120,7 +294,6 @@
     </div>
   </div>
 
-
   <div id="confirmationModal"
     style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:999;">
     <div
@@ -134,9 +307,6 @@
       <button onclick="closeModal('confirmationModal')">NO</button>
     </div>
   </div>
-
-
-
 
   <div id="deleteModal"
     style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:999;">
@@ -159,54 +329,374 @@
 </html>
 
 <script>
-  // Function to calculate timeline and priority based on dates
-  function calculateTimeline(elem) {
-    const row = elem.closest("tr");
-    const startInput = row.querySelector(".start-date")?.value;
-    const endInput = row.querySelector(".end-date")?.value;
-    const timelineCell = row.querySelector(".timeline");
-    const priorityCell = row.cells[6];
-    const statusCell = row.cells[5];
+  const employees = <?= json_encode($employees); ?>;
+  const taskTemplates = <?= json_encode($taskTemplates); ?>;
+  let currentFormToSubmit = null;
 
-    priorityCell.classList.remove("priority-high", "priority-medium", "priority-low", "priority-un", "priority-invalid");
+  const originalValues = {};
 
-    if (startInput && endInput) {
-      const startDate = new Date(startInput);
-      const endDate = new Date(endInput);
-      const diffTime = endDate - startDate;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  // --- NEW `addNewTaskRow` function ---
+  function addNewTaskRow() {
+    // Don't add a new row if one already exists
+    if (document.getElementById('new-task-form-row')) return;
 
-      if (diffDays > 0) {
-        timelineCell.textContent = `${diffDays} day${diffDays > 1 ? 's' : ''}`;
-        statusCell.textContent = "Not Started";
+    const tableBody = document.getElementById('taskBody');
+    const addTaskRow = document.getElementById('add-task-row');
 
-        if (diffDays <= 3) {
-          priorityCell.textContent = "High";
-          priorityCell.classList.add("priority-high");
-        } else if (diffDays <= 7) {
-          priorityCell.textContent = "Medium";
-          priorityCell.classList.add("priority-medium");
-        } else if (diffDays <= 100) {
-          priorityCell.textContent = "Low";
-          priorityCell.classList.add("priority-low");
-        } else {
-          priorityCell.textContent = "Undefined";
-          priorityCell.classList.add("priority-un");
-        }
+    // Create a new row element
+    const newRow = document.createElement('tr');
+    newRow.id = 'new-task-form-row';
+
+    // Construct the HTML for the input fields inside the new row
+    newRow.innerHTML = `
+        <td>
+            <select name="assignee_id" class="new-task-assignee">
+                <option value="">Select Assignee</option>
+                ${employees.map(emp => `<option value="${emp.uid}">${emp.full_name}</option>`).join('')}
+            </select>
+        </td>
+        <td>-</td> <td>
+            <select name="template_id">
+                <option value="">Select Task</option>
+                ${taskTemplates.map(template => `<option value="${template.id}">${template.description}</option>`).join('')}
+            </select>
+        </td>
+        <td><input type="date" name="start_date" /></td>
+        <td><input type="date" name="end_date" /></td>
+        <td>-</td> <td>Not Started</td> <td>
+            <select name="priority">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+            </select>
+        </td>
+        <td>
+            <button type="button" onclick="saveNewTask()">Save</button>
+            <button type="button" onclick="cancelNewTask()">Cancel</button>
+        </td>
+    `;
+
+    // Insert the new row before the "+ Add Task" button's row
+    tableBody.insertBefore(newRow, addTaskRow);
+
+    // Hide the "+ Add Task" button to prevent adding multiple new rows
+    document.querySelector('.add-task-btn').style.display = 'none';
+  }
+
+  // --- NEW `cancelNewTask` function ---
+  function cancelNewTask() {
+    const newRow = document.getElementById('new-task-form-row');
+    if (newRow) {
+      newRow.remove();
+    }
+    // Show the "+ Add Task" button again
+    document.querySelector('.add-task-btn').style.display = 'inline-block';
+  }
+
+  // --- NEW `saveNewTask` function ---
+  async function saveNewTask() {
+    const newRow = document.getElementById('new-task-form-row');
+    const assigneeId = newRow.querySelector('[name="assignee_id"]').value;
+    const templateId = newRow.querySelector('[name="template_id"]').value;
+    const startDate = newRow.querySelector('[name="start_date"]').value;
+    const endDate = newRow.querySelector('[name="end_date"]').value;
+    const priority = newRow.querySelector('[name="priority"]').value;
+
+
+    if (!assigneeId || !templateId || !startDate || !endDate) {
+      alert('Please fill out all required fields: Assignee, Task, Start Date, and End Date.');
+      return;
+    }
+
+    const payload = new URLSearchParams();
+    payload.append('action', 'add_task');
+    payload.append('assignee_id', assigneeId);
+    payload.append('template_id', templateId);
+    payload.append('start_date', startDate);
+    payload.append('end_date', endDate);
+    payload.append('priority', priority);
+
+    try {
+      const resp = await fetch(window.location.href, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: payload.toString(),
+      });
+
+      const result = await resp.json();
+
+      if (result.success) {
+        // Remove the form row
+        cancelNewTask();
+        buildNewTaskRow(result.data);
+        showTemporaryMessage('Task added successfully.', 'success');
       } else {
-        timelineCell.textContent = "Invalid";
-        priorityCell.textContent = "Invalid";
-        priorityCell.classList.add("priority-invalid");
-        statusCell.textContent = "Invalid";
+        alert('Error adding task: ' + (result.message || 'Unknown server error.'));
       }
-    } else {
-      timelineCell.textContent = "-";
-      priorityCell.textContent = "";
-      statusCell.textContent = "";
+    } catch (err) {
+      console.error('Save task error:', err);
+      alert('An unexpected network error occurred.');
     }
   }
 
-  // Search functionality
+  // --- NEW `buildNewTaskRow` function ---
+  function buildNewTaskRow(task) {
+    console.log(task);
+    const tableBody = document.getElementById('taskBody');
+    const addTaskRow = document.getElementById('add-task-row');
+
+    // 1) Create the TR
+    const tr = document.createElement('tr');
+    tr.id = `task-row-${task.id}`;
+
+    // 2) Build its innerHTML—including hidden inputs in the last cell
+    tr.innerHTML = `
+    <td>${task.assignee_name}</td>
+    <td>${task.assignee_id}</td>
+    <td class="editable" data-field="task_display" data-template-id="${task.template_id}">
+      ${task.task}
+    </td>
+    <td class="editable" data-field="start_date_display">${task.start_date}</td>
+    <td class="editable" data-field="end_date_display">${task.end_date}</td>
+    <td>${task.timeline}</td>
+    <td>${task.status}</td>
+    <td class="editable" data-field="priority_display">${task.priority}</td>
+    <td>
+      <!-- Hidden form fields for edit_task -->
+      <input type="hidden" name="action" value="edit_task">
+      <input type="hidden" name="task_id" value="${task.id}">
+      <input type="hidden" name="template_id" id="template_id_hidden_${task.id}" value="${task.template_id}">
+      <input type="hidden" name="task_description" id="task_description_hidden_${task.id}" value="${task.task}">
+      <input type="hidden" name="start_date" id="start_date_hidden_${task.id}" value="${task.start_date}">
+      <input type="hidden" name="end_date" id="end_date_hidden_${task.id}" value="${task.end_date}">
+      <input type="hidden" name="priority" id="priority_hidden_${task.id}" value="${task.priority}">
+
+      <!-- Action buttons -->
+      <button type="button" onclick="enableRowEdit(${task.id})" id="editBtn-${task.id}">Edit</button>
+      <button type="button" id="saveBtn-${task.id}" style="display:none;"
+              onclick="updateHiddenFieldsAndConfirm(event, ${task.id})">Save</button>
+      <button type="button" id="cancelBtn-${task.id}" style="display:none;"
+              onclick="cancelEdit(${task.id})">Cancel</button>
+      <button type="button" onclick="showDeleteModal(${task.id})" id="deleteBtn-${task.id}">Delete</button>
+    </td>
+  `;
+
+    // 3) Insert it right before the "+ Add Task" row
+    tableBody.insertBefore(tr, addTaskRow);
+
+    // 4) Un‐hide the "+ Add Task" button again
+    document.querySelector('.add-task-btn').style.display = 'inline-block';
+  }
+
+
+  function enableRowEdit(taskId) {
+    const row = document.querySelector(`#task-row-${taskId}`);
+    const editableFields = row.querySelectorAll('.editable');
+    originalValues[taskId] = {};
+
+    editableFields.forEach(cell => {
+      const field = cell.dataset.field;
+      const value = cell.textContent.trim();
+      originalValues[taskId][field] = value;
+
+      let input;
+      let inputName;
+      let inputType = 'text';
+
+      if (field.includes('date')) {
+        inputType = 'date';
+        inputName = field.replace('_display', '');
+      } else if (field === 'priority_display') {
+        inputType = 'select';
+        inputName = 'priority';
+      } else if (field === 'task_display') {
+        inputType = 'select-task';
+        inputName = 'template_id';
+      }
+
+      if (inputType === 'select-task') {
+        input = document.createElement('select');
+        input.name = inputName;
+        input.className = 'task-select';
+
+        let currentTemplateId = cell.dataset.templateId;
+
+        taskTemplates.forEach(template => {
+          const option = document.createElement('option');
+          option.value = template.id;
+          option.textContent = template.description;
+          if (template.id == currentTemplateId) {
+            option.selected = true;
+          }
+          input.appendChild(option);
+        });
+
+        input.addEventListener('change', function () {
+          const selectedOptionText = this.options[this.selectedIndex].text;
+          const taskDescriptionHidden = document.getElementById(`task_description_hidden_${taskId}`);
+          if (taskDescriptionHidden) {
+            taskDescriptionHidden.value = selectedOptionText;
+          }
+        });
+
+      } else if (inputType === 'select') {
+        input = document.createElement('select');
+        input.name = inputName;
+        ['Low', 'Medium', 'High'].forEach(level => {
+          const option = document.createElement('option');
+          option.value = level;
+          option.textContent = level;
+          if (level === value) option.selected = true;
+          input.appendChild(option);
+        });
+      } else { // For regular text/date inputs
+        input = document.createElement('input');
+        input.type = inputType;
+        input.name = inputName;
+        input.value = value;
+      }
+
+      cell.innerHTML = '';
+      cell.appendChild(input);
+    });
+
+    document.getElementById(`editBtn-${taskId}`).style.display = 'none';
+    document.getElementById(`deleteBtn-${taskId}`).style.display = 'none';
+
+    document.getElementById(`saveBtn-${taskId}`).style.display = 'inline-block';
+    document.getElementById(`cancelBtn-${taskId}`).style.display = 'inline-block';
+  }
+
+  function cancelEdit(taskId) {
+    const row = document.querySelector(`#task-row-${taskId}`);
+    const editableFields = row.querySelectorAll('.editable');
+
+    editableFields.forEach(cell => {
+      const field = cell.dataset.field;
+      cell.textContent = originalValues[taskId][field]; // Restore original display value
+    });
+
+    document.getElementById(`saveBtn-${taskId}`).style.display = 'none';
+    document.getElementById(`cancelBtn-${taskId}`).style.display = 'none';
+
+    // re-show normal buttons
+    document.getElementById(`editBtn-${taskId}`).style.display = 'inline-block';
+    document.getElementById(`deleteBtn-${taskId}`).style.display = 'inline-block';
+  }
+
+  async function updateHiddenFieldsAndConfirm(event, taskId) {
+    event.preventDefault();
+
+    const row = document.querySelector(`#task-row-${taskId}`);
+    const startInput = row.querySelector('td[data-field="start_date_display"] input');
+    const endInput = row.querySelector('td[data-field="end_date_display"] input');
+    const prioSelect = row.querySelector('td[data-field="priority_display"] select');
+    const taskSelect = row.querySelector('td[data-field="task_display"] select');
+
+    // Gather form-data
+    const payload = new URLSearchParams();
+    payload.append('action', 'edit_task');
+    payload.append('task_id', taskId);
+    payload.append('template_id', taskSelect.value);
+    payload.append('start_date', startInput.value);
+    payload.append('end_date', endInput.value);
+    payload.append('priority', prioSelect.value);
+
+    try {
+      const resp = await fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: payload.toString(),
+      });
+
+      const result = await resp.json();
+      if (!result.success) {
+        alert('Error: ' + result.message);
+        return;
+      }
+
+      row.querySelector('td[data-field="task_display"]').textContent = result.data.task;
+      row.querySelector('td[data-field="start_date_display"]').textContent = result.data.start_date;
+      row.querySelector('td[data-field="end_date_display"]').textContent = result.data.end_date;
+      row.querySelector('td[data-field="priority_display"]').textContent = result.data.priority;
+
+      // hide the inline editors
+      document.getElementById(`saveBtn-${taskId}`).style.display = 'none';
+      document.getElementById(`cancelBtn-${taskId}`).style.display = 'none';
+
+      // re-show the normal actions
+      document.getElementById(`editBtn-${taskId}`).style.display = 'inline-block';
+      document.getElementById(`deleteBtn-${taskId}`).style.display = 'inline-block';
+
+      showTemporaryMessage('Task updated successfully.', 'success');
+
+    } catch (err) {
+      console.error(err);
+      alert('Unexpected error; check console.');
+    }
+  }
+
+  // helper to show a message at top for a few seconds
+  function showTemporaryMessage(msg, type = 'success') {
+    const div = document.createElement('div');
+    div.textContent = msg;
+    div.className = type === 'success'
+      ? 'success-message'
+      : 'error-message';
+    document.querySelector('.mgr-main-content').prepend(div);
+    setTimeout(() => div.remove(), 3000);
+  }
+
+  let pendingDeleteTaskId = null;
+
+  function showDeleteModal(taskId) {
+    pendingDeleteTaskId = taskId;
+    document.getElementById('deleteModal').style.display = 'flex';
+  }
+
+  document.getElementById('deleteConfirmBtn').addEventListener('click', async () => {
+    if (!pendingDeleteTaskId) return;
+
+    try {
+      const payload = new URLSearchParams({
+        action: 'delete_task',
+        task_id: pendingDeleteTaskId
+      });
+
+      const resp = await fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: payload.toString()
+      });
+      const result = await resp.json();
+
+      if (!result.success) {
+        alert('Error deleting task: ' + (result.message || 'unknown'));
+      } else {
+        // remove the row from the DOM
+        const row = document.getElementById(`task-row-${pendingDeleteTaskId}`);
+        row && row.remove();
+        showTemporaryMessage('Task deleted.', 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network or server error.');
+    } finally {
+      pendingDeleteTaskId = null;
+      closeModal('deleteModal');
+    }
+  });
+
+
+
+
+
   function searchTasks() {
     const input = document.getElementById("searchBar").value.toLowerCase();
     const rows = document.querySelectorAll("#taskBody tr:not(#add-task-row)");
@@ -217,474 +707,17 @@
     });
   }
 
-  // Real-time clock
-  function updateClock() {
-    const now = new Date();
-    document.getElementById("clock").textContent = now.toLocaleTimeString();
+  function showModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.style.display = 'flex';
   }
-  setInterval(updateClock, 1000);
-  updateClock();
-
-  // Filter tasks by status
-  function filterStatus(status) {
-    const rows = document.querySelectorAll("#taskBody tr:not(#add-task-row)");
-    rows.forEach(row => {
-      const rowStatus = row.cells[5].innerText.trim();
-      row.style.display = rowStatus === status || status === 'All' ? '' : 'none';
-    });
+  function closeModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.style.display = 'none';
   }
 
-  // Update status counts
-  function updateStatusCounts() {
-    const rows = document.querySelectorAll("#taskBody tr:not(#add-task-row)");
-    const today = new Date();
-    const counts = {
-      "Not Started": 0,
-      "In Progress": 0,
-      "Done": 0,
-      "Overdue": 0
-    };
 
-    rows.forEach(row => {
-      const endDateInput = row.querySelector(".end-date");
-      const statusCell = row.querySelector("td:nth-child(6)");
-      const endDateValue = endDateInput ? endDateInput.value : null;
-
-      if (!endDateValue) {
-        statusCell.textContent = "Not Started";
-        counts["Not Started"]++;
-        return;
-      }
-
-      const endDate = new Date(endDateValue);
-      endDate.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-
-      if (endDate < today) {
-        statusCell.textContent = "Overdue";
-        counts["Overdue"]++;
-      } else if (endDate.getTime() === today.getTime()) {
-        statusCell.textContent = "In Progress";
-        counts["In Progress"]++;
-      } else {
-        statusCell.textContent = "Not Started";
-        counts["Not Started"]++;
-      }
-    });
-
-    document.getElementById("mgr-assign-count-not-started").textContent = counts["Not Started"];
-    document.getElementById("mgr-assign-count-in-progress").textContent = counts["In Progress"];
-    document.getElementById("mgr-assign-count-done").textContent = counts["Done"];
-    document.getElementById("mgr-assign-count-overdue").textContent = counts["Overdue"];
-  }
-
-  // Employee and task data
-  const employees = [
-    { name: "Marvin John Ramos", id: "PK004E", img: "assets/img/marvin.jpg" },
-    { name: "Maricel Torremucha", id: "PK002E", img: "assets/img/maricel.jpg" },
-    { name: "Jeric Palermo", id: "PK003E", img: "assets/img/jeric.jpg" },
-    { name: "Stewart Sean Daylo", id: "PK001E", img: "assets/img/stewart.jpg" }
-  ];
-
-  const tasks = [
-    // === INVENTORY & SUPPLIES (Weekly/Monthly) ===
-    "Full Inventory Audit (Count all stock, check expiry dates)",
-    "Reorganize Storage Room (Label shelves, FIFO system)",
-    "Compare Supplier Prices & Negotiate Discounts",
-    "Place Monthly Bulk Order (Coffee, cups, syrups)",
-
-    // === EQUIPMENT MAINTENANCE (Weekly) ===
-    "Deep Clean & Descale Espresso Machine (Full disassembly)",
-    "Service Coffee Grinders (Replace burrs, calibrate)",
-    "Clean Refrigerator Coils & Check Seals",
-
-    // === MENU & QUALITY (Monthly) ===
-    "Test & Introduce 1 New Seasonal Drink",
-    "Update Menu Board/Printed Menus",
-    "Conduct Staff Coffee Tasting (Train on new beans)",
-
-    // === FACILITY UPKEEP (Monthly) ===
-    "Deep Clean Floor Grout & Drains",
-    "Repaint Chipped Walls/Furniture",
-    "Reorganize Café Layout for Efficiency",
-
-    // === ADMIN & TRAINING (Ongoing) ===
-    "Create/Update Training Manual (Recipes, POS steps)",
-    "Analyze 1 Month of Sales Data (Identify waste/low sellers)",
-    "Plan a Staff Appreciation Day (Budget, activities)"
-  ];
-
-  // Modal functions
-  function showModal(modalId, message) {
-    const modal = document.getElementById(modalId);
-    modal.querySelector("p").textContent = message;
-    modal.style.display = "flex";
-    return modal;
-  }
-
-  function closeModal(modalId) {
-    document.getElementById(modalId).style.display = "none";
-  }
-
-  // Add new task row
-  function addNewTaskRow() {
-    const tableBody = document.getElementById("taskBody");
-    const addTaskRow = document.getElementById("add-task-row");
-    const newRow = document.createElement("tr");
-    newRow.dataset.isNew = "true";
-
-    // Column 1: Assignee
-    const assigneeCell = document.createElement("td");
-    const assigneeSelect = document.createElement("select");
-    assigneeSelect.classList.add("assignee-select");
-    assigneeSelect.innerHTML = `<option value="" disabled selected>Select Employee</option>`;
-    employees.forEach(emp => {
-      const option = document.createElement("option");
-      option.value = emp.id;
-      option.textContent = emp.name;
-      assigneeSelect.appendChild(option);
-    });
-    assigneeCell.appendChild(assigneeSelect);
-    newRow.appendChild(assigneeCell);
-
-    // Column 2: Employee ID
-    const idCell = document.createElement("td");
-    idCell.classList.add("employee-id");
-    idCell.textContent = "-";
-    newRow.appendChild(idCell);
-
-    // Column 3: Task
-    const taskCell = document.createElement("td");
-    const taskSelect = document.createElement("select");
-    taskSelect.classList.add("task-select");
-    taskSelect.innerHTML = `<option value="" disabled selected>Select Task</option>`;
-    tasks.forEach(task => {
-      const option = document.createElement("option");
-      option.value = task;
-      option.textContent = task;
-      taskSelect.appendChild(option);
-    });
-    taskCell.appendChild(taskSelect);
-    newRow.appendChild(taskCell);
-
-    // Column 4: Date
-    const dateCell = document.createElement("td");
-    const startDateInput = document.createElement("input");
-    startDateInput.type = "date";
-    startDateInput.classList.add("start-date");
-    startDateInput.addEventListener("change", function () {
-      calculateTimeline(this);
-    });
-
-    const endDateInput = document.createElement("input");
-    endDateInput.type = "date";
-    endDateInput.classList.add("end-date");
-    endDateInput.addEventListener("change", function () {
-      calculateTimeline(this);
-    });
-
-    dateCell.appendChild(startDateInput);
-    dateCell.appendChild(document.createTextNode(" to "));
-    dateCell.appendChild(endDateInput);
-    newRow.appendChild(dateCell);
-
-    // Column 5: Timeline
-    const timelineCell = document.createElement("td");
-    timelineCell.classList.add("timeline");
-    timelineCell.textContent = "-";
-    newRow.appendChild(timelineCell);
-
-    // Column 6: Status
-    const statusCell = document.createElement("td");
-    statusCell.textContent = "-";
-    newRow.appendChild(statusCell);
-
-    // Column 7: Priority
-    const priorityCell = document.createElement("td");
-    priorityCell.classList.add("stat");
-    priorityCell.textContent = "-";
-    newRow.appendChild(priorityCell);
-
-    // Column 8: Actions
-    const actionCell = document.createElement("td");
-    actionCell.classList.add("action-cell");
-    actionCell.innerHTML = `
-        <button class="saveBtn" onclick="saveTask(this)">Save</button>
-        <button class="cancelBtn" onclick="cancelTask(this)">Cancel</button>
-    `;
-    newRow.appendChild(actionCell);
-
-    tableBody.insertBefore(newRow, addTaskRow);
-
-    // On employee selection
-    assigneeSelect.addEventListener("change", function () {
-      const selectedId = this.value;
-      const selectedEmployee = employees.find(emp => emp.id === selectedId);
-      if (selectedEmployee) {
-        idCell.textContent = selectedEmployee.id;
-        const profileContainer = document.createElement("div");
-        profileContainer.style.display = "flex";
-        profileContainer.style.alignItems = "center";
-        profileContainer.innerHTML = `
-                <img src="${selectedEmployee.img}" alt="${selectedEmployee.name}" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 8px;">
-                <span>${selectedEmployee.name}</span>
-            `;
-        assigneeCell.innerHTML = "";
-        assigneeCell.appendChild(profileContainer);
-      }
-    });
-
-    // On task selection
-    taskSelect.addEventListener("change", function () {
-      calculateTimeline(this);
-    });
-  }
-
-  // Save task to database
-  function saveTask(button) {
-    const row = button.closest("tr");
-    const isNew = row.dataset.isNew === "true";
-    const employeeId = row.querySelector(".employee-id").textContent;
-    const task = row.querySelector(".task-select").value;
-    const startDate = row.querySelector(".start-date").value;
-    const endDate = row.querySelector(".end-date").value;
-
-    if (!employeeId || employeeId === "-" || !task || !startDate || !endDate) {
-      alert("Please fill all required fields");
-      return;
-    }
-
-    const formData = {
-      employee_id: employeeId,
-      task: task,
-      start_date: startDate,
-      end_date: endDate
-    };
-
-    const modal = showModal("confirmModal", "CONFIRM: Add this task?");
-
-    document.getElementById("confirmYes").onclick = function () {
-      closeModal("confirmModal");
-
-      fetch('task_actions.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'add_task',
-          ...formData
-        })
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            row.dataset.taskId = data.task_id;
-            row.dataset.isNew = "false";
-            row.querySelector(".saveBtn").textContent = "Edit";
-            row.querySelector(".saveBtn").onclick = function () { enableEdit(this); };
-            row.querySelector(".cancelBtn").textContent = "Delete";
-            row.querySelector(".cancelBtn").onclick = function () { deleteTask(this); };
-            updateStatusCounts();
-            alert("Task added successfully");
-          } else {
-            alert("Error adding task: " + (data.message || "Unknown error"));
-          }
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          alert("Error adding task");
-        });
-    };
-
-    document.getElementById("confirmNo").onclick = function () {
-      closeModal("confirmModal");
-    };
-  }
-
-  // Enable edit mode for existing task
-  function enableEdit(button) {
-    const row = button.closest("tr");
-    const taskId = row.dataset.taskId;
-    const taskCell = row.querySelector("td:nth-child(3)");
-    const dateCell = row.querySelector("td:nth-child(4)");
-    const statusCell = row.querySelector("td:nth-child(6)");
-    const actionCell = row.querySelector(".action-cell");
-
-    const originalTask = taskCell.textContent.trim();
-    const dateText = dateCell.innerHTML;
-    const dateRegex = /<strong>Start:<\/strong> ([\d-]+).*<strong>End:<\/strong> ([\d-]+)/;
-    const dateMatches = dateText.match(dateRegex);
-    const startDate = dateMatches ? dateMatches[1] : "";
-    const endDate = dateMatches ? dateMatches[2] : "";
-
-    // Replace task with dropdown
-    taskCell.innerHTML = createTaskDropdown();
-    const taskSelect = taskCell.querySelector("select");
-    taskSelect.value = originalTask;
-
-    // Replace dates with input fields
-    dateCell.innerHTML = `
-        <input type="date" class="start-date" value="${startDate || ""}">
-        to
-        <input type="date" class="end-date" value="${endDate || ""}">
-    `;
-
-    // Add event listeners for date changes
-    const startDateInput = dateCell.querySelector(".start-date");
-    const endDateInput = dateCell.querySelector(".end-date");
-    startDateInput.addEventListener("change", () => calculateTimeline(startDateInput));
-    endDateInput.addEventListener("change", () => calculateTimeline(endDateInput));
-
-    // Change buttons
-    button.textContent = "Save";
-    button.onclick = function () { saveEdit(this); };
-    actionCell.querySelector(".cancelBtn").textContent = "Cancel";
-    actionCell.querySelector(".cancelBtn").onclick = function () { cancelEdit(this); };
-  }
-
-  // Save edited task
-  function saveEdit(button) {
-    const row = button.closest("tr");
-    const taskId = row.dataset.taskId;
-    const employeeId = row.querySelector(".employee-id").textContent;
-    const task = row.querySelector(".task-select").value;
-    const startDate = row.querySelector(".start-date").value;
-    const endDate = row.querySelector(".end-date").value;
-
-    if (!employeeId || !task || !startDate || !endDate) {
-      alert("Please fill all required fields");
-      return;
-    }
-
-    const modal = showModal("confirmationModal", "Confirm Task & Date Updates?");
-
-    document.getElementById("confirmYesBtn").onclick = function () {
-      closeModal("confirmationModal");
-
-      fetch('task_actions.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'edit_task',
-          task_id: taskId,
-          employee_id: employeeId,
-          task: task,
-          start_date: startDate,
-          end_date: endDate
-        })
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            // Update the row with the new values
-            row.querySelector("td:nth-child(3)").textContent = task;
-            row.querySelector("td:nth-child(4)").innerHTML = `
-                    <div><strong>Start:</strong> ${startDate}</div>
-                    <div><strong>End:</strong> ${endDate}</div>
-                `;
-            calculateTimeline(row.querySelector(".start-date"));
-
-            // Reset buttons
-            button.textContent = "Edit";
-            button.onclick = function () { enableEdit(this); };
-            row.querySelector(".cancelBtn").textContent = "Delete";
-            row.querySelector(".cancelBtn").onclick = function () { deleteTask(this); };
-
-            updateStatusCounts();
-            alert("Task updated successfully");
-          } else {
-            alert("Error updating task: " + (data.message || "Unknown error"));
-          }
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          alert("Error updating task");
-        });
-    };
-  }
-
-  // Cancel edit mode
-  function cancelEdit(button) {
-    const row = button.closest("tr");
-    const taskId = row.dataset.taskId;
-
-    if (confirm("Discard changes?")) {
-      // Reload the row data from the server or keep original values
-      // For simplicity, we'll just reset to view mode
-      row.querySelector("td:nth-child(3)").textContent = row.dataset.originalTask || "";
-      // Reset other fields as needed
-
-      // Reset buttons
-      row.querySelector(".saveBtn").textContent = "Edit";
-      row.querySelector(".saveBtn").onclick = function () { enableEdit(this); };
-      row.querySelector(".cancelBtn").textContent = "Delete";
-      row.querySelector(".cancelBtn").onclick = function () { deleteTask(this); };
-    }
-  }
-
-  // Delete task
-  function deleteTask(button) {
-    const row = button.closest("tr");
-    const taskId = row.dataset.taskId;
-
-    if (!taskId) {
-      row.remove();
-      return;
-    }
-
-    const modal = showModal("deleteModal", "Are you sure you want to delete this task?");
-
-    document.getElementById("deleteConfirmBtn").onclick = function () {
-      closeModal("deleteModal");
-
-      fetch('task_actions.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'delete_task',
-          task_id: taskId
-        })
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            row.remove();
-            updateStatusCounts();
-            alert("Task deleted successfully");
-          } else {
-            alert("Error deleting task: " + (data.message || "Unknown error"));
-          }
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          alert("Error deleting task");
-        });
-    };
-  }
-
-  // Cancel new task
-  function cancelTask(button) {
-    const row = button.closest("tr");
-    if (confirm("Cancel this new task?")) {
-      row.remove();
-    }
-  }
-
-  // Helper function to create task dropdown
-  function createTaskDropdown() {
-    let options = '<option value="" disabled selected>Select Task</option>';
-    tasks.forEach(task => {
-      options += `<option value="${task}">${task}</option>`;
-    });
-    return `<select class="task-select">${options}</select>`;
-  }
-
-  // Overlay animation
+  document.body.style.overflow = 'hidden';
   function startOverlayAnimation() {
     const overlay = document.querySelector('.mgr-home-overlay');
     const button = document.querySelector('.mgr-home-btn');
@@ -692,22 +725,18 @@
     if (overlay.classList.contains('slide-up')) {
       overlay.classList.remove('slide-up');
       button.textContent = "Get Started";
+      document.body.style.overflow = 'hidden';
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       overlay.classList.add('slide-up');
       button.textContent = "Hey there!";
-      document.querySelector('.mgr-container').scrollIntoView({ behavior: 'smooth' });
+      document.body.style.overflow = 'auto';
+      document.getElementById('main-dashboard').scrollIntoView({ behavior: 'smooth' });
     }
   }
 
-  // Initialize the page
-  document.addEventListener("DOMContentLoaded", function () {
-    updateStatusCounts();
-  });
+
 </script>
-
-
-
 </body>
 
 </html>

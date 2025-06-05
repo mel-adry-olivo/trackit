@@ -1,3 +1,62 @@
+<?php
+
+include 'database/queries.php';
+
+session_start();
+
+$userFullname = $_SESSION['full_name'] ?? '';
+$userId = $_SESSION["uid"] ?? 0;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_note'])) {
+  session_start();
+  $uid = $_SESSION['uid'] ?? null;
+
+  if (!$uid) {
+    die('Unauthorized access');
+  }
+
+  $title = $_POST['title'] ?? '';
+  $content = $_POST['content'] ?? '';
+  $alarm = $_POST['alarm'] ?? null;
+  $noteId = $_POST['note_id'] ?? null;
+
+  $result = saveNote($uid, $title, $content, $alarm, $noteId);
+
+  if (!$result['success']) {
+    echo "<script>alert('" . $result['message'] . "');</script>";
+  }
+
+  header("Location: " . $_SERVER['PHP_SELF']);
+  exit();
+
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_note_id'])) {
+  session_start();
+  $uid = $_SESSION['uid'] ?? null;
+
+  if (!$uid) {
+    die('Unauthorized access');
+  }
+
+  $noteId = intval($_POST['delete_note_id']);
+
+  $result = deleteNote($uid, $noteId);
+
+  if (!$result['success']) {
+    echo "<script>alert('" . addslashes($result['message']) . "');</script>";
+  } else {
+    // Redirect to avoid resubmission
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit();
+  }
+}
+
+
+
+$userNotes = getAllUserNotes($_SESSION['uid']);
+
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -33,8 +92,9 @@
     <main class="mgr-main-content">
       <header class="mgr-header">
         <div>
-          <h1>Welcome, Glenda</h1>
-          <p class="mgr-id"><b>Branch Manager </b> || ID No.: 0001</p>
+          <h1>Welcome, <?= $userFullname ?></h1>
+          <p class="emp-id"><b>Employee</b> || ID No.: <?= str_pad($userId, 4, '0', STR_PAD_LEFT) ?>
+          </p>
         </div>
         <div class="mgr-branch-info">
           <span>Branch: <strong>WVSU-BINHI TBI</strong> | Time: </span>
@@ -50,113 +110,66 @@
           <p>Jot down your personal notes, meetings, to-do lists here!</p><br><br><br>
         </div>
 
-        <div class="mgr-notes-modal" id="mgr-notes-modal">
+        <form method="POST" class="mgr-notes-modal" id="mgr-notes-modal">
           <div class="mgr-notes-modal-content">
+            <input type="hidden" name="note_id" id="note-id" />
 
-            <input type="text" id="mgr-notes-title" class="mgr-notes-title-input" placeholder="Enter note title..." />
+            <input type="text" name="title" id="mgr-notes-title" class="mgr-notes-title-input"
+              placeholder="Enter note title..." required />
 
-            <div class="mgr-notes-mode-toggle">
-              <button onclick="mgrNotesSetMode('note')">
-
-                <img src="assets/svg/notes.svg" alt="Note Icon" width="20" height="20" />
-                Note
-              </button><br>
-            </div>
-            <textarea id="mgr-notes-text" placeholder="Write your note here..."></textarea>
-
+            <textarea name="content" id="mgr-notes-text" placeholder="Write your note here..." required></textarea>
 
             <div class="mgr-notes-alarm">
               <label for="alarm-datetime">Set Notification:</label>
-              <input type="datetime-local" id="alarm-datetime">
-              <button onclick="setReminderNotification()">Set Alarm</button>
+              <input type="datetime-local" name="alarm" id="alarm-datetime">
+              <button type="button" onclick="setReminderNotification()">Set Alarm</button>
             </div>
 
             <div class="mgr-notes-modal-actions">
-              <button class="mgr-notes-save" onclick="mgrNotesPromptDraft()">Save</button>
-              <button class="mgr-notes-cancel" onclick="mgrNotesCloseModal()">Cancel</button>
+              <button class="mgr-notes-save" type="submit" name="save_note">Save</button>
+              <button class="mgr-notes-cancel" type="button" onclick="mgrNotesCloseModal()">Cancel</button>
             </div>
           </div>
-        </div>
-
-        <!-- Alarm Setup Modal -->
-        <div class="mgr-notes-confirm-modal" id="mgr-alarm-modal">
-          <div class="mgr-notes-modal-content">
-            <h3>Set Reminder Alarm</h3>
-            <label for="alarm-date">Date:</label>
-            <input type="date" id="alarm-date"><br><br>
-            <label for="alarm-time">Time:</label>
-            <input type="time" id="alarm-time"><br><br>
-            <div class="mgr-notes-modal-actions">
-              <button class="mgr-notes-save" onclick="saveAlarm()">Set</button>
-              <button class="mgr-notes-cancel" onclick="closeAlarmModal()">Cancel</button>
-            </div>
-          </div>
-        </div>
-
+        </form>
 
         <main class="mgr-notes-section">
           <h1 class="mgr-notes-section-title">Reminders & Notes</h1>
           <div class="mgr-notes-note-grid" id="mgr-notes-grid">
-            <div class="mgr-notes-card mgr-notes-add-note" onclick="mgrNotesOpenModal()">
-              + Add Note
-            </div>
+            <?php foreach ($userNotes as $note): ?>
+              <div class="mgr-notes-card" data-id="<?= $note['id'] ?>"
+                data-title="<?= htmlspecialchars($note['title']) ?>"
+                data-content="<?= htmlspecialchars($note['content']) ?>" data-alarm="<?= $note['alarm_time'] ?>"
+                onclick="mgrNotesOpenModal(this)">
+
+                <form method="POST" style="display:inline; float: right;">
+                  <input type="hidden" name="delete_note_id" value="<?= $note['id'] ?>">
+                  <button type="button" class="mgr-notes-delete-btn"
+                    onclick="openDeleteModal(this, event)">Delete</button>
+                </form>
+
+                <h3><?= htmlspecialchars($note['title']) ?></h3>
+                <p><?= nl2br(htmlspecialchars($note['content'])) ?></p>
+                <?php if (!empty($note['alarm_time'])): ?>
+                  <small>⏰ <?= date('M d, Y H:i', strtotime($note['alarm_time'])) ?></small>
+                <?php endif; ?>
+                <!-- Delete form -->
+              </div>
+            <?php endforeach; ?>
+            <div class="mgr-notes-card mgr-notes-add-note" onclick="mgrNotesOpenModal()">+ Add Note</div>
+
           </div>
         </main>
-
-        <div class="mgr-notes-modal" id="mgr-notes-modal">
-          <div class="mgr-notes-modal-content">
-            <div class="mgr-notes-mode-toggle">
-              <button onclick="mgrNotesSetMode('note')">Note</button>
-
-            </div>
-            <textarea id="mgr-notes-text" placeholder="Write your note here..."></textarea>
-
-
-            <div class="mgr-notes-modal-actions">
-              <button class="mgr-notes-save" onclick="mgrNotesPromptDraft()">Save</button>
-              <button class="mgr-notes-cancel" onclick="mgrNotesCloseModal()">Cancel</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Draft Confirmation -->
-        <div class="mgr-notes-confirm-modal" id="mgr-notes-confirm-modal">
-          <div class="mgr-notes-modal-content">
-            <p>Save to drafts?</p>
-            <div class="mgr-notes-modal-actions">
-              <button class="mgr-notes-save" onclick="mgrNotesSaveNote()">Yes</button>
-              <button class="mgr-notes-cancel" onclick="mgrNotesCloseConfirm()">No</button>
-            </div>
-          </div>
-        </div>
-
-        <!--Note Preview -->
-        <div class="mgr-notes-modal" id="mgr-notes-view-modal">
-          <div class="mgr-notes-modal-content">
-            <div id="mgr-notes-view-content"></div>
-            <div class="mgr-notes-modal-actions">
-              <button onclick="mgrNotesEditFromView()">Edit</button>
-              <button onclick="openDeleteModal()">Delete</button>
-              <button onclick="mgrNotesCloseView()"> X </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Delete Confirmation Modal -->
         <div class="mgr-notes-confirm-modal" id="mgr-notes-delete-modal">
           <div class="mgr-notes-modal-content">
             <p style="font-size: 16px; margin-bottom: 16px;">
               Are you sure you want to delete this note? This action cannot be undone.
             </p>
             <div class="mgr-notes-modal-actions">
-              <button class="mgr-notes-save" onclick="confirmDeleteNote()">Yes, Delete</button>
+              <button class="mgr-notes-save" id="confirm-delete-btn">Yes, Delete</button>
               <button class="mgr-notes-cancel" onclick="closeDeleteModal()">Cancel</button>
             </div>
           </div>
         </div>
-
-
-
 
 
 
@@ -307,24 +320,29 @@
             });
           }
 
-
           const deleteModal = document.getElementById('mgr-notes-delete-modal');
 
-          function openDeleteModal() {
+          let deleteFormToSubmit = null;
+
+          function openDeleteModal(button, event) {
+            event.stopPropagation();
             deleteModal.style.display = 'flex';
+            deleteFormToSubmit = button.closest('form');
           }
 
           function closeDeleteModal() {
             deleteModal.style.display = 'none';
+            deleteFormToSubmit = null;
           }
 
           function confirmDeleteNote() {
-            if (editTarget) {
-              editTarget.remove();
-              viewModal.style.display = 'none';
-              closeDeleteModal();
+            if (deleteFormToSubmit) {
+              deleteFormToSubmit.submit();
             }
           }
+
+          document.getElementById('confirm-delete-btn').addEventListener('click', confirmDeleteNote);
+
 
 
           function mgrNotesCloseView() {

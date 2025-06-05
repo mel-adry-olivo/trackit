@@ -128,11 +128,11 @@ $userNotes = getAllUserNotes($_SESSION['uid']);
               data-content="<?= htmlspecialchars($note['content']) ?>" data-alarm="<?= $note['alarm_time'] ?>"
               onclick="mgrNotesOpenModal(this)">
 
-              <form method="POST" onsubmit="event.stopPropagation();" style="display:inline; float: right;">
+              <form method="POST" style="display:inline; float: right;">
                 <input type="hidden" name="delete_note_id" value="<?= $note['id'] ?>">
-                <button type="submit" class="mgr-notes-delete-btn"
-                  onclick="return confirm('Are you sure you want to delete this note?');">Delete</button>
+                <button type="button" class="mgr-notes-delete-btn" onclick="openDeleteModal(this, event)">Delete</button>
               </form>
+
               <h3><?= htmlspecialchars($note['title']) ?></h3>
               <p><?= nl2br(htmlspecialchars($note['content'])) ?></p>
               <?php if (!empty($note['alarm_time'])): ?>
@@ -145,6 +145,17 @@ $userNotes = getAllUserNotes($_SESSION['uid']);
 
         </div>
       </main>
+      <div class="mgr-notes-confirm-modal" id="mgr-notes-delete-modal">
+        <div class="mgr-notes-modal-content">
+          <p style="font-size: 16px; margin-bottom: 16px;">
+            Are you sure you want to delete this note? This action cannot be undone.
+          </p>
+          <div class="mgr-notes-modal-actions">
+            <button class="mgr-notes-save" id="confirm-delete-btn">Yes, Delete</button>
+            <button class="mgr-notes-cancel" onclick="closeDeleteModal()">Cancel</button>
+          </div>
+        </div>
+      </div>
       <div class="fill-in-footer">
         <h3>All Rights Reserved by Paul Kaldi || Foreal Solutions || Hexed Devs @ 2025</h3>
       </div>
@@ -286,53 +297,59 @@ $userNotes = getAllUserNotes($_SESSION['uid']);
       }
     }
 
-    function setReminderNotification() {
-      const datetimeInput = document.getElementById('alarm-datetime');
-      const timeString = datetimeInput.value;
-      const title = titleInput.value.trim();
+    // function setReminderNotification() {
+    //   const datetimeInput = document.getElementById('alarm-datetime');
+    //   const timeString = datetimeInput.value;
+    //   const title = titleInput.value.trim();
 
-      if (!timeString) return alert('Please select a date and time for the alarm.');
-      if (!title) return alert('Please enter a note title first.');
+    //   if (!timeString) return alert('Please select a date and time for the alarm.');
+    //   if (!title) return alert('Please enter a note title first.');
 
-      const targetTime = new Date(timeString).getTime();
-      const now = new Date().getTime();
-      const delay = targetTime - now;
+    //   const targetTime = new Date(timeString).getTime();
+    //   const now = new Date().getTime();
+    //   const delay = targetTime - now;
 
-      if (delay <= 0) return alert('Selected time must be in the future.');
+    //   if (delay <= 0) return alert('Selected time must be in the future.');
 
-      Notification.requestPermission().then(permission => {
-        if (permission === "granted") {
-          setTimeout(() => {
-            new Notification("⏰ Reminder: " + title, {
-              body: "It's time to check your note: " + title,
-              icon: 'assets/svg/reminders.svg'
-            });
-          }, delay);
-          alert("Notification alarm set!");
-        } else {
-          alert("Notification permission denied.");
-        }
-      });
-    }
+    //   Notification.requestPermission().then(permission => {
+    //     if (permission === "granted") {
+    //       setTimeout(() => {
+    //         new Notification("⏰ Reminder: " + title, {
+    //           body: "It's time to check your note: " + title,
+    //           icon: 'assets/svg/reminders.svg'
+    //         });
+    //       }, delay);
+    //       alert("Notification alarm set!");
+    //     } else {
+    //       alert("Notification permission denied.");
+    //     }
+    //   });
+    // }
 
 
     const deleteModal = document.getElementById('mgr-notes-delete-modal');
 
-    function openDeleteModal() {
+    let deleteFormToSubmit = null;
+
+    function openDeleteModal(button, event) {
+      event.stopPropagation();
       deleteModal.style.display = 'flex';
+      deleteFormToSubmit = button.closest('form');
     }
 
     function closeDeleteModal() {
       deleteModal.style.display = 'none';
+      deleteFormToSubmit = null;
     }
 
     function confirmDeleteNote() {
-      if (editTarget) {
-        editTarget.remove();
-        viewModal.style.display = 'none';
-        closeDeleteModal();
+      if (deleteFormToSubmit) {
+        deleteFormToSubmit.submit();
       }
     }
+
+    document.getElementById('confirm-delete-btn').addEventListener('click', confirmDeleteNote);
+
 
 
     function mgrNotesCloseView() {

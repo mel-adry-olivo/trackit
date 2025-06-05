@@ -1,3 +1,15 @@
+<?php
+
+include "database/queries.php";
+
+session_start();
+
+$allUsers = getAllUsers();
+
+
+?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -6,6 +18,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Company</title>
   <link rel="stylesheet" href="assets/css/styles.css" />
+  <script src="./assets/js/main/clock.js" defer></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 
@@ -202,6 +215,14 @@
                   <td>WVSU Binhi-TBI</td>
                   <td>Coffee Roastery & Shop</td>
                 </tr>
+                <?php foreach ($allUsers as $user): ?>
+                  <tr>
+                    <td><?= htmlspecialchars($user['full_name']) ?></td>
+                    <td><?= htmlspecialchars($user['job_title'] ?? 'N/A') ?></td>
+                    <td>WVSU Binhi-TBI</td>
+                    <td>Coffee Roastery & Shop</td>
+                  </tr>
+                <?php endforeach; ?>
               </tbody>
             </table>
           </div>

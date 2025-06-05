@@ -1,7 +1,7 @@
 <?php
 
 include "database/database.php";
-function getManagerAllTasks($managerId)
+function getManagerAllTasks($managerId, $limit = null)
 {
   $conn = connect_to_database();
   $tasks = [];
@@ -11,6 +11,7 @@ function getManagerAllTasks($managerId)
       t.id AS id,
       assignee.uid AS assignee_id,
       CONCAT(assignee.firstname, ' ', assignee.lastname) AS assignee_name,
+      t.template_id,
       tt.description AS task,
       t.start_date,
       t.end_date,
@@ -22,6 +23,10 @@ function getManagerAllTasks($managerId)
     JOIN users assignee ON assignee.uid = t.assigned_to
     WHERE t.assigned_by = $managerId
   ";
+
+  if ($limit !== null && is_int($limit) && $limit > 0) {
+    $sql .= " LIMIT $limit";
+  }
 
   $result = $conn->query($sql);
   if ($result) {
@@ -67,6 +72,174 @@ function getEmployeeTasks($employeeId, $limit = null)
 
   return $tasks;
 }
+
+function getPastTasks()
+{
+  $con = connect_to_database();
+  $taskHistory = [];
+
+  $sql = "
+    SELECT
+      u.uid,
+      u.firstname,
+      u.lastname,
+      t.status,
+      t.timeline,
+      t.start_date,
+      t.end_date,
+      tt.description
+    FROM tasks t
+    JOIN users u ON t.assigned_to = u.uid
+    JOIN task_templates tt ON t.template_id = tt.id
+    WHERE t.status IN ('Done', 'Overdue')
+    ORDER BY u.uid, t.end_date DESC
+  ";
+
+  $result = $con->query($sql);
+  if ($result) {
+    while ($row = $result->fetch_assoc()) {
+      $uid = $row['uid'];
+      $fullName = $row['firstname'] . ' ' . $row['lastname'];
+
+      if (!isset($taskHistory[$uid])) {
+        $taskHistory[$uid] = [
+          'name' => $fullName,
+          'tasks' => [],
+        ];
+      }
+
+      $taskHistory[$uid]['tasks'][] = [
+        'description' => $row['description'],
+        'start_date' => $row['start_date'],
+        'end_date' => $row['end_date'],
+        'timeline' => $row['timeline'],
+        'status' => $row['status'],
+      ];
+    }
+  }
+
+  return $taskHistory;
+}
+
+function updateTask($taskId, $templateId, $startDate, $endDate, $priority)
+{
+  $conn = connect_to_database();
+
+  $sql = "UPDATE tasks
+          SET template_id = '$templateId',
+              start_date = '$startDate',
+              end_date = '$endDate',
+              priority = '$priority'
+          WHERE id = $taskId";
+
+  if ($conn->query($sql) === TRUE) {
+    return true;
+  } else {
+    return "Error updating task: " . $conn->error;
+  }
+}
+
+function getTaskById($taskId)
+{
+  $conn = connect_to_database();
+  $sql = "
+    SELECT
+      t.id AS id,
+      assignee.uid AS assignee_id,
+      CONCAT(assignee.firstname, ' ', assignee.lastname) AS assignee_name,
+      t.template_id,
+      tt.description AS task,
+      t.start_date,
+      t.end_date,
+      t.timeline,
+      t.status,
+      t.priority
+    FROM tasks t
+    JOIN task_templates tt ON t.template_id = tt.id
+    JOIN users assignee ON assignee.uid = t.assigned_to
+    WHERE t.id = $taskId
+  ";
+  $result = $conn->query($sql);
+  return $result->fetch_assoc();
+}
+
+function createTask($managerId, $assigneeId, $templateId, $startDate, $endDate, $priority)
+{
+  $conn = connect_to_database();
+
+  // Calculate timeline string (e.g., "3 days")
+  $days = (new DateTime($startDate))->diff(new DateTime($endDate))->days + 1;
+  $timeline = $days . ' day' . ($days > 1 ? 's' : '');
+
+  // Escape values manually (be very careful in real apps)
+  $managerId = (int) $managerId;
+  $assigneeId = (int) $assigneeId;
+  $templateId = (int) $templateId;
+  $startDate = $conn->real_escape_string($startDate);
+  $endDate = $conn->real_escape_string($endDate);
+  $priority = $conn->real_escape_string($priority);
+  $timeline = $conn->real_escape_string($timeline);
+
+  // Build query
+  $sql = "INSERT INTO tasks
+            (assigned_by, assigned_to, template_id, timeline, start_date, end_date, priority)
+          VALUES
+            ($managerId, $assigneeId, $templateId, '$timeline', '$startDate', '$endDate', '$priority')";
+
+  if ($conn->query($sql) === TRUE) {
+    return $conn->insert_id; // Return the new task's ID
+  } else {
+    return "Error creating task: " . $conn->error;
+  }
+}
+
+
+
+function deleteTask($taskId)
+{
+  $conn = connect_to_database();
+  $sql = "DELETE FROM tasks WHERE id = $taskId";
+  if ($conn->query($sql) === TRUE) {
+    return true;
+  } else {
+    return "Error deleting task: " . $conn->error;
+  }
+}
+
+function getAllEmployees()
+{
+  $conn = connect_to_database();
+  $sql = "SELECT uid, full_name FROM users WHERE role = 'employee'";
+  $result = $conn->query($sql);
+  $employees = [];
+  while ($row = $result->fetch_assoc()) {
+    $employees[] = $row;
+  }
+  return $employees;
+}
+
+function getTemplateDescription($templateId)
+{
+  $conn = connect_to_database();
+  $sql = "SELECT description FROM task_templates WHERE id = $templateId";
+  $result = $conn->query($sql);
+  $row = $result->fetch_assoc();
+  return $row['description'];
+}
+
+function getAllTaskTemplates()
+{
+  $conn = connect_to_database();
+  $taskTemplates = [];
+  $sql = "SELECT id, description FROM task_templates ORDER BY description ASC";
+
+  $result = $conn->query($sql);
+  while ($row = $result->fetch_assoc()) {
+    $taskTemplates[] = $row;
+  }
+  return $taskTemplates;
+}
+
 
 function getAllUserNotes($userId)
 {
@@ -169,4 +342,20 @@ function deleteNote($userId, $noteId)
   }
 }
 
-?>
+function getAllUsers()
+{
+  $conn = connect_to_database();
+  if (!$conn) {
+    return [];
+  }
+  $sql = "SELECT full_name, job_title FROM users";
+  $result = $conn->query($sql);
+  if (!$result) {
+    return [];
+  }
+  $users = [];
+  while ($row = $result->fetch_assoc()) {
+    $users[] = $row;
+  }
+  return $users;
+}

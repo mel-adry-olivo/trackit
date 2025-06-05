@@ -106,7 +106,6 @@ foreach ($tasks as $task) {
               <th>TIMELINE</th>
               <th>STATUS</th>
               <th>PRIORITY</th>
-              <th>ACTIONS</th>
             </tr>
           </thead>
           <tbody>
@@ -119,10 +118,6 @@ foreach ($tasks as $task) {
                 <td><?= htmlspecialchars($task['timeline']) ?></td>
                 <td><?= htmlspecialchars($task['status']) ?></td>
                 <td><?= htmlspecialchars($task['priority']) ?></td>
-                <td>
-                  <button onclick="editTask(<?= (int) $task['id'] ?>)">Edit</button>
-                  <button onclick="confirmDelete(<?= (int) $task['id'] ?>)">Delete</button>
-                </td>
               </tr>
             <?php endforeach; ?>
           </tbody>

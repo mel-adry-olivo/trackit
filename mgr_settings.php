@@ -1,3 +1,50 @@
+<?php
+
+include 'database/database.php';
+
+session_start();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_field'])) {
+  $uid = $_SESSION['uid'] ?? null;
+  if (!$uid)
+    die('Unauthorized');
+
+  $conn = connect_to_database();
+  if (!$conn)
+    die('DB connection failed');
+
+  $allowedFields = ['civil_status', 'nationality', 'phone', 'email', 'address', 'emergency_contact_name', 'emergency_phone', 'emergency_relationship'];
+  $field = $_POST['field'];
+
+  if (in_array($field, $allowedFields)) {
+    $value = mysqli_real_escape_string($conn, $_POST[$field] ?? '');
+
+    if ($field === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+      $_SESSION['error_message'] = "Invalid email.";
+    } else {
+      $sql = "UPDATE users SET `$field` = '$value' WHERE uid = $uid";
+      if (mysqli_query($conn, $sql)) {
+        $_SESSION[$field] = $value;
+        $_SESSION['success_message'] = ucfirst(str_replace('_', ' ', $field)) . " updated successfully.";
+      } else {
+        $_SESSION['error_message'] = "Update failed: " . mysqli_error($conn);
+      }
+    }
+  } else {
+    $_SESSION['error_message'] = "Invalid field.";
+  }
+
+  mysqli_close($conn);
+  header("Location: " . $_SERVER['PHP_SELF']);
+  exit();
+}
+
+
+
+
+?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -18,314 +65,271 @@
   <div class="mgr-container ">
     <!-- Sidebar -->
     <?php include "./php/includes/mgr_sidebar.php"; ?>
-
-    <div class="mgr-set-acc-container">
-      <div class="mgr-set-acc-header">
-        <div class="mgr-set-acc-header-text">
-          <div class="mgr-set-profile-pic" id="mgr-set-pic">
+    <div class="acc-container">
+      <div class="acc-header">
+        <div class="acc-header-text">
+          <div class="profile-pic" id="pic">
             <span>No image uploaded</span>
           </div>
-          <input type="file" id="mgr-set-fileInput" accept="image/*" class="mgr-set-upload-btn" />
-          <h2>Tralalero Tralala</h2>
-          <p>Employee ID: 6969</p>
-          <p>Employee</p>
+          <input type="file" id="fileInput" accept="image/*" class="upload-btn">
+          <h2><?php echo $_SESSION['full_name']; ?></h2>
+          <p>Employee ID: <?php echo $_SESSION['uid']; ?></p>
         </div>
       </div>
 
-      <div class="mgr-set-tabs">
-        <button id="btnPersonal" onclick="showPersonal()">Personal</button>
-        <button id="btnEmployment" onclick="showEmployment()">Employment</button>
-        <button id="btnEmergency" onclick="showEmergency()">Emergency</button>
+      <div class="tabs">
+        <button onclick="showPersonal()">PERSONAL</button>
+        <button onclick="showEmployment()">EMPLOYMENT</button>
+        <button onclick="showEmergency()">EMERGENCY</button>
       </div>
-
-      <div class="mgr-set-action-buttons" style="margin-top: 20px; text-align: right;">
-        <button id="changePasswordBtn" class="mgr-set-log-out-btn"
-          style="background-color:rgb(97, 97, 97); margin-right: 10px;">
-          Change Password
-        </button>
-        <button id="logoutBtn" class="mgr-set-log-out-btn" style="background-color:rgb(229, 26, 47);">
-          Logout
-        </button>
-      </div>
-
-      <div class="mgr-set-acc-content-personal">
+      <div class="acc-content-personal">
         <h3>Personal Information</h3>
-        <div class="mgr-set-info-grid">
-          <div class="mgr-set-info-item">
-            <strong>Full Name:</strong>
+        <div class="info-grid">
+          <div class="info-item">
+            <strong>Full Name</strong>
+            <span><?= htmlspecialchars($_SESSION['full_name'] ?? '') ?></span>
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Date of Birth:</strong>
+          <div class="info-item">
+            <strong>Date of Birth</strong>
+            <span><?= htmlspecialchars($_SESSION['date_of_birth'] ?? '') ?></span>
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Place of Birth:</strong>
+          <div class="info-item">
+            <strong>Place of Birth</strong>
+            <span><?= htmlspecialchars($_SESSION['place_of_birth'] ?? '') ?></span>
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Gender:</strong>
+          <div class="info-item">
+            <strong>Gender</strong>
+            <span><?= htmlspecialchars($_SESSION['gender'] ?? '') ?></span>
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Civil Status:</strong>
-            <span id="mgr-set-civilStatus"></span>
-            <button class="mgr-set-edit-acc-btn" onclick="editField('mgr-set-civilStatus')">Edit</button>
+          <div class="info-item" id="civilStatusContainer">
+            <strong>Civil Status</strong>
+
+            <!-- Default View -->
+            <div id="civilStatusView">
+              <span><?= htmlspecialchars($_SESSION['civil_status'] ?? '') ?></span>
+              <button class="edit-acc-btn" onclick="showForm('civilStatus')">Edit</button>
+            </div>
+
+            <!-- Edit Form -->
+            <form method="POST" id="civilStatusForm" style="display:none;">
+              <select name="civil_status" class="edit-input" required>
+                <?php
+                $options = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'];
+                $current = $_SESSION['civil_status'] ?? '';
+                foreach ($options as $option) {
+                  $selected = ($current === $option) ? 'selected' : '';
+                  echo "<option value=\"$option\" $selected>$option</option>";
+                }
+                ?>
+              </select>
+              <input type="hidden" name="field" value="civil_status">
+              <button type="submit" name="update_field" class="save-btn">Save</button>
+              <button type="button" onclick="hideForm('civilStatus')" class="cancel-btn">Cancel</button>
+            </form>
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Nationality:</strong>
-            <span id="mgr-set-nationality"></span>
-            <button class="mgr-set-edit-acc-btn" onclick="editField('mgr-set-nationality')">Edit</button>
+
+
+          <div class="info-item">
+            <strong>Nationality</strong>
+            <div id="nationalityView">
+              <span><?= htmlspecialchars($_SESSION['nationality'] ?? '') ?></span>
+              <button class="edit-acc-btn" onclick="showForm('nationality')">Edit</button>
+            </div>
+            <form method="POST" id="nationalityForm" style="display:none;">
+              <input type="text" name="nationality" class="edit-input"
+                value="<?= htmlspecialchars($_SESSION['nationality'] ?? '') ?>" required>
+              <input type="hidden" name="field" value="nationality">
+              <button type="submit" name="update_field" class="save-btn">Save</button>
+              <button type="button" onclick="hideForm('nationality')" class="cancel-btn">Cancel</button>
+            </form>
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Phone:</strong>
-            <span id="mgr-set-phone"></span>
-            <button class="mgr-set-edit-acc-btn" onclick="editField('mgr-set-phone')">Edit</button>
+          <div class="info-item">
+            <strong>Phone</strong>
+            <div id="phoneView">
+              <span><?= htmlspecialchars($_SESSION['phone'] ?? '') ?></span>
+              <button class="edit-acc-btn" onclick="showForm('phone')">Edit</button>
+            </div>
+            <form method="POST" id="phoneForm" style="display:none;">
+              <input type="text" name="phone" class="edit-input"
+                value="<?= htmlspecialchars($_SESSION['phone'] ?? '') ?>" required>
+              <input type="hidden" name="field" value="phone">
+              <button type="submit" name="update_field" class="save-btn">Save</button>
+              <button type="button" onclick="hideForm('phone')" class="cancel-btn">Cancel</button>
+            </form>
+
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Email:</strong>
-            <span id="mgr-set-email"></span>
-            <button class="mgr-set-edit-acc-btn" onclick="editField('mgr-set-email')">Edit</button>
+          <div class="info-item">
+            <strong>Email</strong>
+            <div id="emailView">
+              <span><?= htmlspecialchars($_SESSION['email'] ?? '') ?></span>
+              <button class="edit-acc-btn" onclick="showForm('email')">Edit</button>
+            </div>
+            <form method="POST" id="emailForm" style="display:none;">
+              <input type="email" name="email" class="edit-input"
+                value="<?= htmlspecialchars($_SESSION['email'] ?? '') ?>" required>
+              <input type="hidden" name="field" value="email">
+              <button type="submit" name="update_field" class="save-btn">Save</button>
+              <button type="button" onclick="hideForm('email')" class="cancel-btn">Cancel</button>
+            </form>
+
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Address:</strong>
-            <span id="mgr-set-address"></span>
-            <button class="mgr-set-edit-acc-btn" onclick="editField('mgr-set-address')">Edit</button>
+          <div class="info-item">
+            <strong>Address</strong>
+            <div id="addressView">
+              <span><?= htmlspecialchars($_SESSION['address'] ?? '') ?></span>
+              <button class="edit-acc-btn" onclick="showForm('address')">Edit</button>
+            </div>
+            <form method="POST" id="addressForm" style="display:none;">
+              <input type="text" name="address" class="edit-input"
+                value="<?= htmlspecialchars($_SESSION['address'] ?? '') ?>" required>
+              <input type="hidden" name="field" value="address">
+              <button type="submit" name="update_field" class="save-btn">Save</button>
+              <button type="button" onclick="hideForm('address')" class="cancel-btn">Cancel</button>
+            </form>
+
           </div>
         </div>
       </div>
 
-      <div class="mgr-set-acc-content-employment" style="display:none;">
+      <div class="acc-content-employment" style="display:none;">
         <h3>Employment Information</h3>
-        <div class="mgr-set-info-grid">
-          <div class="mgr-set-info-item">
-            <strong>Password:</strong>
+        <div class="info-grid">
+          <div class="info-item">
+            <strong>Start Date</strong>
+            <span><?= htmlspecialchars($_SESSION['start_date'] ?? '') ?></span>
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Change Password:</strong>
-            <span id="mgr-set-changePassword"></span>
-            <button class="mgr-set-edit-acc-btn" onclick="editField('mgr-set-changePassword')">Edit</button>
+          <div class="info-item">
+            <strong>End Date</strong>
+            <span><?= htmlspecialchars($_SESSION['end_date'] ?? '-') ?></span>
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Start Date:</strong>
+          <div class="info-item">
+            <strong>Date Created</strong>
+            <span><?= htmlspecialchars($_SESSION['created_at'] ?? '') ?></span>
           </div>
-          <div class="mgr-set-info-item">
-            <strong>End Date:</strong>
+          <div class="info-item">
+            <strong>Job Title</strong>
+            <span><?= htmlspecialchars($_SESSION['job_title'] ?? '') ?></span>
           </div>
-          <div class="mgr-set-info-item">
-            <strong>Date Created:</strong>
-          </div>
-          <div class="mgr-set-info-item">
-            <strong>Department:</strong>
-          </div>
-          <div class="mgr-set-info-item">
-            <strong>Role:</strong>
+          <div class="info-item">
+            <strong>Role</strong>
+            <span><?= htmlspecialchars(ucfirst($_SESSION['role']) ?? '') ?></span>
           </div>
         </div>
       </div>
 
-      <div class="mgr-set-acc-content-emergency" style="display:none;">
+      <div class="acc-content-emergency" style="display:none;">
         <h3>Emergency Information</h3>
-        <div class="mgr-set-info-grid">
-          <div class="mgr-set-info-item">
+        <div class="info-grid">
+          <div class="info-item">
             <strong>Emergency Contact Name:</strong>
-            <span id="mgr-set-emergencyContactName"></span>
-            <button class="mgr-set-edit-acc-btn" onclick="editField('mgr-set-emergencyContactName')">Edit</button>
+            <div id="emergencyContactNameView">
+              <span><?= htmlspecialchars($_SESSION['emergency_contact_name'] ?? '') ?></span>
+              <button class="edit-acc-btn" onclick="showForm('emergencyContactName')">Edit</button>
+            </div>
+            <form method="POST" id="emergencyContactNameForm" style="display:none;">
+              <input type="text" name="emergency_contact_name" class="edit-input"
+                value="<?= htmlspecialchars($_SESSION['emergency_contact_name'] ?? '') ?>" required>
+              <input type="hidden" name="field" value="emergency_contact_name">
+              <button type="submit" name="update_field" class="save-btn">Save</button>
+              <button type="button" onclick="hideForm('emergencyContactName')" class="cancel-btn">Cancel</button>
+            </form>
+
           </div>
-          <div class="mgr-set-info-item">
+          <div class="info-item">
             <strong>Relationship:</strong>
-            <span id="mgr-set-relationship"></span>
-            <button class="mgr-set-edit-acc-btn" onclick="editField('mgr-set-relationship')">Edit</button>
+            <div id="relationshipView">
+              <span><?= htmlspecialchars($_SESSION['emergency_relationship'] ?? '') ?></span>
+              <button class="edit-acc-btn" onclick="showForm('relationship')">Edit</button>
+            </div>
+            <form method="POST" id="relationshipForm" style="display:none;">
+              <input type="text" name="emergency_relationship" class="edit-input"
+                value="<?= htmlspecialchars($_SESSION['emergency_relationship'] ?? '') ?>" required>
+              <input type="hidden" name="field" value="emergency_relationship">
+              <button type="submit" name="update_field" class="save-btn">Save</button>
+              <button type="button" onclick="hideForm('relationship')" class="cancel-btn">Cancel</button>
+            </form>
+
           </div>
-          <div class="mgr-set-info-item">
+          <div class="info-item">
             <strong>Contact Number:</strong>
-            <span id="mgr-set-emergencyContactNumber"></span>
-            <button class="mgr-set-edit-acc-btn" onclick="editField('mgr-set-emergencyContactNumber')">Edit</button>
+            <div id="emergencyContactNumberView">
+              <span><?= htmlspecialchars($_SESSION['emergency_phone'] ?? '') ?></span>
+              <button class="edit-acc-btn" onclick="showForm('emergencyContactNumber')">Edit</button>
+            </div>
+            <form method="POST" id="emergencyContactNumberForm" style="display:none;">
+              <input type="text" name="emergency_phone" class="edit-input"
+                value="<?= htmlspecialchars($_SESSION['emergency_phone'] ?? '') ?>" required>
+              <input type="hidden" name="field" value="emergency_phone">
+              <button type="submit" name="update_field" class="save-btn">Save</button>
+              <button type="button" onclick="hideForm('emergencyContactNumber')" class="cancel-btn">Cancel</button>
+            </form>
           </div>
         </div>
       </div>
-    </div>
+      <?php if (!empty($success_message)): ?>
+        <div style="color: green;"><?= $success_message ?></div>
+      <?php endif; ?>
 
+      <?php if (!empty($error_message)): ?>
+        <div style="color: red;"><?= $error_message ?></div>
+      <?php endif; ?>
 
-  </div>
+      <button class="log-out-btn">Log out</button>
 
-  <div id="logoutModal" class="modal" style="display:none;">
-    <div class="modal-content">
-      <span class="close" onclick="closeModal()">&times;</span>
-      <p>Are you sure you want to logout?</p>
-      <div class="row">
-        <a href="./logout.php" class="confirm-logout-btn">Yes</a>
-        <a onclick="closeModal()">No</a>
+      <div id="logoutModal" class="modal">
+        <div class="modal-content">
+          <span class="close" onclick="closeModal()">&times;</span>
+          <h3>Are you sure you want to log out?</h3>
+          <a href="./logout.php" class="confirm-logout-btn">Yes</a>
+          <a class="cancel-logout-btn" onclick="closeModal()">No</a>
+        </div>
       </div>
-    </div>
-  </div>
-
-  <script>
-    const fileInput = document.getElementById('mgr-set-fileInput');
-    const pic = document.getElementById('mgr-set-pic');
-
-    fileInput.addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const imageData = reader.result;
-          localStorage.setItem('profilePic', imageData);
-
-
-          pic.innerHTML = '';
-          const img = document.createElement('img');
-          img.src = imageData;
-          img.style.width = "50px";
-          img.style.height = "50px";
-          img.style.objectFit = "cover";
-          pic.appendChild(img);
+      <script>
+        function showPersonal() {
+          document.querySelector('.acc-content-personal').style.display = 'block';
+          document.querySelector('.acc-content-employment').style.display = 'none';
+          document.querySelector('.acc-content-emergency').style.display = 'none';
+        }
+        function showEmployment() {
+          document.querySelector('.acc-content-personal').style.display = 'none';
+          document.querySelector('.acc-content-employment').style.display = 'block';
+          document.querySelector('.acc-content-emergency').style.display = 'none';
+        }
+        function showEmergency() {
+          document.querySelector('.acc-content-personal').style.display = 'none';
+          document.querySelector('.acc-content-employment').style.display = 'none';
+          document.querySelector('.acc-content-emergency').style.display = 'block';
+        }
+        window.onload = function () {
+          showPersonal();
         };
-        reader.readAsDataURL(file);
-      } else {
-        pic.innerHTML = '<span>No image uploaded</span>';
-        localStorage.removeItem('profilePic');
-      }
-    });
 
+        function showForm(fieldName) {
+          document.getElementById(fieldName + 'View').style.display = 'none';
+          document.getElementById(fieldName + 'Form').style.display = 'flex';
+        }
 
-    window.onload = () => {
-      const savedImage = localStorage.getItem('profilePic');
-      if (savedImage) {
-        pic.innerHTML = '';
-        const img = document.createElement('img');
-        img.src = savedImage;
-        img.style.width = "50px";
-        img.style.height = "50px";
-        img.style.objectFit = "cover";
-        pic.appendChild(img);
-      }
-      showPersonal();
-      setActiveTab('btnPersonal');
-    };
+        function hideForm(fieldName) {
+          document.getElementById(fieldName + 'Form').style.display = 'none';
+          document.getElementById(fieldName + 'View').style.display = 'block';
+        }
 
-    function clearActiveTabs() {
-      const buttons = document.querySelectorAll('.mgr-set-tabs button');
-      buttons.forEach(btn => btn.classList.remove('active'));
-    }
+        const modal = document.getElementById("logoutModal");
+        const logoutButton = document.querySelector(".log-out-btn");
+        logoutButton.onclick = function () {
+          modal.style.display = "flex";
+        }
+        function closeModal() {
+          modal.style.display = "none";
+        }
+        window.onclick = function (event) {
+          if (event.target == modal) {
+            closeModal();
+          }
+        }
 
-    function showPersonal() {
-      clearActiveTabs();
-      document.querySelector('.mgr-set-acc-content-personal').style.display = 'block';
-      document.querySelector('.mgr-set-acc-content-employment').style.display = 'none';
-      document.querySelector('.mgr-set-acc-content-emergency').style.display = 'none';
-      document.querySelector('.mgr-set-tabs button:nth-child(1)').classList.add('active');
-    }
-
-    function showEmployment() {
-      clearActiveTabs();
-      document.querySelector('.mgr-set-acc-content-personal').style.display = 'none';
-      document.querySelector('.mgr-set-acc-content-employment').style.display = 'block';
-      document.querySelector('.mgr-set-acc-content-emergency').style.display = 'none';
-      document.querySelector('.mgr-set-tabs button:nth-child(2)').classList.add('active');
-    }
-
-    function showEmergency() {
-      clearActiveTabs();
-      document.querySelector('.mgr-set-acc-content-personal').style.display = 'none';
-      document.querySelector('.mgr-set-acc-content-employment').style.display = 'none';
-      document.querySelector('.mgr-set-acc-content-emergency').style.display = 'block';
-      document.querySelector('.mgr-set-tabs button:nth-child(3)').classList.add('active');
-    }
-
-
-    window.onload = function () {
-      showPersonal();
-    };
-
-
-
-    function setActiveTab(buttonId) {
-      ['btnPersonal', 'btnEmployment', 'btnEmergency'].forEach(id => {
-        document.getElementById(id).classList.toggle('active', id === buttonId);
-      });
-    }
-
-    function editField(fieldId) {
-      const container = document.getElementById(fieldId);
-
-      if (container.querySelector('input')) {
-        return;
-      }
-      const currentValue = container.textContent.trim();
-      container.textContent = '';
-
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'edit-input';
-      input.value = currentValue;
-      container.appendChild(input);
-
-      const saveBtn = document.createElement('button');
-      saveBtn.textContent = 'Save';
-      saveBtn.className = 'save-btn';
-      saveBtn.onclick = () => {
-        container.textContent = input.value.trim();
-      };
-
-      const cancelBtn = document.createElement('button');
-      cancelBtn.textContent = 'Cancel';
-      cancelBtn.className = 'cancel-btn';
-      cancelBtn.onclick = () => {
-        container.textContent = currentValue;
-      };
-      container.appendChild(saveBtn);
-      container.appendChild(cancelBtn);
-    }
-
-    function closeModal() {
-      document.querySelector(".modal").style.display = "none";
-    }
-
-
-    // const logoutModalHTML = `
-    //   <div id="logoutModal" class="mgr-set-modal" style="display:none;">
-    //     <div class="mgr-set-modal-content" style="padding:20px; max-width: 300px; margin: 15% auto; border-radius: 8px; background:#fff; text-align:center;">
-    //       <span id="closeLogoutModal" style="float:right; cursor:pointer; font-size: 20px;">&times;</span>
-    //       <p>Are you sure you want to logout?</p>
-    //       <button id="confirmLogoutBtn" style="background-color:#dc3545; color:#fff; border:none; padding:10px 20px; margin:10px; border-radius:4px; cursor:pointer;">Yes</button>
-    //       <button id="cancelLogoutBtn" style="background-color:#6c757d; color:#fff; border:none; padding:10px 20px; margin:10px; border-radius:4px; cursor:pointer;">No</button>
-    //     </div>
-    //   </div>
-    // `;
-    // document.body.insertAdjacentHTML('beforeend', logoutModalHTML);
-
-    const logoutBtn = document.getElementById('logoutBtn');
-    const logoutModal = document.getElementById('logoutModal');
-    const closeLogoutModal = document.getElementById('closeLogoutModal');
-    const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
-    const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
-    const changePasswordBtn = document.getElementById('changePasswordBtn');
-
-    logoutBtn.addEventListener('click', () => {
-      logoutModal.style.display = 'flex';
-    });
-
-    closeLogoutModal.addEventListener('click', () => {
-      logoutModal.style.display = 'none';
-    });
-
-    cancelLogoutBtn.addEventListener('click', () => {
-      logoutModal.style.display = 'none';
-    });
-
-    confirmLogoutBtn.addEventListener('click', () => {
-
-      alert('Logged out successfully!');
-      logoutModal.style.display = 'none';
-      // For example, redirect to login page:
-      // window.location.href = 'login.php';
-    });
-
-    changePasswordBtn.addEventListener('click', () => {
-      // Trigger change password workflow or page
-      alert('Change password clicked. Implement your logic here.');
-    });
-
-
-
-  </script>
+      </script>
+    </div>
 </body>
 
 </html>

@@ -1,3 +1,15 @@
+<?php
+
+include "database/queries.php";
+
+session_start();
+
+$userFullname = $_SESSION['full_name'] ?? '';
+$userId = $_SESSION["uid"] ?? 0;
+$taskHistory = getPastTasks();
+
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -6,7 +18,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Task History</title>
   <link rel="stylesheet" href="assets/css/styles.css" />
-  <!-- Add jsPDF library -->
+  <script src="./assets/js/main/clock.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
@@ -35,8 +47,9 @@
     <main class="mgr-main-content">
       <header class="mgr-header">
         <div>
-          <h1>Welcome, Glenda</h1>
-          <p class="mgr-id"><b>Branch Manager </b> || ID No.: PKM001</p>
+          <h1>Welcome, <?= $userFullname ?></h1>
+          <p class="mgr-id"><b>Employee</b> || ID No.: <?= str_pad($userId, 4, '0', STR_PAD_LEFT) ?>
+          </p>
         </div>
         <div class="mgr-branch-info">
           <span>Branch: <strong>WVSU-BINHI TBI</strong> | Time: </span>
@@ -71,157 +84,40 @@
             </tr>
           </thead>
           <tbody id="mgr-th-taskBody">
+            <?php foreach ($taskHistory as $uid => $data): ?>
+              <tr>
+                <td><?= htmlspecialchars($data['name']) ?></td>
+                <td><?= 'UID' . str_pad($uid, 4, '0', STR_PAD_LEFT) ?></td>
+                <td><button class="mgr-th-toggle-btn" onclick="mgrThToggleDetails(this)">View Details ▼</button></td>
+              </tr>
+              <tr class="mgr-th-details-row">
+                <td colspan="3">
+                  <table class="mgr-th-inner-table">
+                    <thead>
+                      <tr>
+                        <th>TASK</th>
+                        <th>DATE</th>
+                        <th>TIMELINE</th>
+                        <th>STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach ($data['tasks'] as $task): ?>
+                        <tr>
+                          <td><?= htmlspecialchars($task['description']) ?></td>
+                          <td><?= htmlspecialchars(date("M d, Y", strtotime($task['start_date']))) ?> -
+                            <?= htmlspecialchars(date("M d, Y", strtotime($task['end_date']))) ?>
+                          </td>
+                          <td><?= htmlspecialchars($task['timeline']) ?></td>
+                          <td><?= htmlspecialchars($task['status']) ?></td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            <?php endforeach; ?>
 
-
-            <tr>
-              <td>Ms. Glenda Baquiriza</td>
-              <td>PKM001</td>
-              <td><button class="mgr-th-toggle-btn" onclick="mgrThToggleDetails(this)">View Details ▼</button></td>
-            </tr>
-            <tr class="mgr-th-details-row">
-              <td colspan="3">
-                <table class="mgr-th-inner-table">
-                  <thead>
-                    <tr>
-                      <th>TASK</th>
-                      <th>DATE</th>
-                      <th>TIMELINE</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colspan="4" style="text-align: center; color: #888;">No data available</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-
-            <tr>
-              <td>Marvin John Ramos</td>
-              <td>PKE004</td>
-              <td><button class="mgr-th-toggle-btn" onclick="mgrThToggleDetails(this)">View Details ▼</button></td>
-            </tr>
-            <tr class="mgr-th-details-row">
-              <td colspan="3">
-                <table class="mgr-th-inner-table">
-                  <thead>
-                    <tr>
-                      <th>TASK</th>
-                      <th>DATE</th>
-                      <th>TIMELINE</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colspan="4" style="text-align: center; color: #888;">No data available</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-
-            <tr>
-              <td>Maricel Torremucha</td>
-              <td>PKE002</td>
-              <td><button class="mgr-th-toggle-btn" onclick="mgrThToggleDetails(this)">View Details ▼</button></td>
-            </tr>
-            <tr class="mgr-th-details-row">
-              <td colspan="3">
-                <table class="mgr-th-inner-table">
-                  <thead>
-                    <tr>
-                      <th>TASK</th>
-                      <th>DATE</th>
-                      <th>TIMELINE</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colspan="4" style="text-align: center; color: #888;">No data available</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-
-            <tr>
-              <td>Jeric Palermo</td>
-              <td>PKE003</td>
-              <td><button class="mgr-th-toggle-btn" onclick="mgrThToggleDetails(this)">View Details ▼</button></td>
-            </tr>
-            <tr class="mgr-th-details-row">
-              <td colspan="3">
-                <table class="mgr-th-inner-table">
-                  <thead>
-                    <tr>
-                      <th>TASK</th>
-                      <th>DATE</th>
-                      <th>TIMELINE</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colspan="4" style="text-align: center; color: #888;">No data available</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-
-            <tr>
-              <td>Stewart Sean Daylo</td>
-              <td>PKE001</td>
-              <td><button class="mgr-th-toggle-btn" onclick="mgrThToggleDetails(this)">View Details ▼</button></td>
-            </tr>
-            <tr class="mgr-th-details-row">
-              <td colspan="3">
-                <table class="mgr-th-inner-table">
-                  <thead>
-                    <tr>
-                      <th>TASK</th>
-                      <th>DATE</th>
-                      <th>TIMELINE</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colspan="4" style="text-align: center; color: #888;">No data available</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-
-            <tr>
-              <td>New Employee</td>
-              <td>PKE005</td>
-              <td><button class="mgr-th-toggle-btn" onclick="mgrThToggleDetails(this)">View Details ▼</button></td>
-            </tr>
-            <tr class="mgr-th-details-row">
-              <td colspan="3">
-                <table class="mgr-th-inner-table">
-                  <thead>
-                    <tr>
-                      <th>TASK</th>
-                      <th>DATE</th>
-                      <th>TIMELINE</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colspan="4" style="text-align: center; color: #888;">No data available</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
           </tbody>
         </table>
       </section>
@@ -275,12 +171,6 @@
           }
         }
 
-        function updateClock() {
-          const now = new Date();
-          document.getElementById("clock").textContent = now.toLocaleTimeString();
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
       </script>
 
 </body>
